@@ -27,7 +27,7 @@ export function registerManageCommands(program: Command): void {
     .option("--house <PUBKEY>", "Auction house PDA (auto-detected if omitted)")
     .action(async (auctionPdaStr: string, opts) => {
       try {
-        const { program: prog, wallet } = getProgram();
+        const { program: prog } = getProgram();
         const auctionPda = new PublicKey(auctionPdaStr);
         const winner = new PublicKey(opts.winner);
 

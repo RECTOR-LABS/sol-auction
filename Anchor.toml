@@ -8,6 +8,9 @@ skip-lint = false
 [programs.localnet]
 sol_auction = "HQvAj4GGwhw4cGkxNXX22vz2NnXe5rok4n5Yyqq3WtMC"
 
+[programs.devnet]
+sol_auction = "HQvAj4GGwhw4cGkxNXX22vz2NnXe5rok4n5Yyqq3WtMC"
+
 [registry]
 url = "https://api.apr.dev"
 

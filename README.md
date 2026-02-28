@@ -414,11 +414,39 @@ sol-auction list --seller <PUBKEY>
 
 ---
 
+## Devnet Deployment
+
+**Program ID**: [`HQvAj4GGwhw4cGkxNXX22vz2NnXe5rok4n5Yyqq3WtMC`](https://explorer.solana.com/address/HQvAj4GGwhw4cGkxNXX22vz2NnXe5rok4n5Yyqq3WtMC?cluster=devnet)
+
+**Deploy Tx**: [`3hSCcpWJRAY17itCGnK7oGtcWjqK6X8CNijx2AgiTzKB1LmnsTtQz6qZ9Z3BRpbKzqVeYTcEfo2frwoSwDBMn321`](https://explorer.solana.com/tx/3hSCcpWJRAY17itCGnK7oGtcWjqK6X8CNijx2AgiTzKB1LmnsTtQz6qZ9Z3BRpbKzqVeYTcEfo2frwoSwDBMn321?cluster=devnet)
+
+### Run Demo
+
+The demo script exercises all 3 auction types end-to-end on devnet:
+
+```bash
+# Set environment
+export ANCHOR_PROVIDER_URL=https://api.devnet.solana.com
+export ANCHOR_WALLET=~/.config/solana/id.json
+
+# Run full demo (English + Dutch + Sealed Vickrey + Cancel)
+npx ts-node --esm scripts/devnet-demo.ts
+```
+
+The demo creates 4 auctions and generates Explorer links for every transaction:
+1. **English** — create, bid (2 bidders), settle, refund
+2. **Dutch** — create, buy at decayed price
+3. **Sealed Vickrey** — create, submit 2 sealed bids, close bidding, reveal, settle at 2nd price, refund
+4. **Cancel** — create and cancel (item returned)
+
+---
+
 ## Tech Stack
 
-- **Program**: Rust + Anchor Framework (v0.30)
-- **Testing**: Anchor test framework with Mocha/Chai
-- **Client**: TypeScript CLI
+- **Program**: Rust + Anchor Framework (v0.32.1)
+- **Testing**: Anchor test framework with Mocha/Chai (33 tests)
+- **Client**: TypeScript CLI (Commander.js)
+- **Cryptography**: Keccak256 commit-reveal (solana-keccak-hasher on-chain, @noble/hashes client-side)
 - **Network**: Solana Devnet
 - **Program ID**: `HQvAj4GGwhw4cGkxNXX22vz2NnXe5rok4n5Yyqq3WtMC`
 

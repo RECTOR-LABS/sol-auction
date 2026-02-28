@@ -88,7 +88,7 @@ async function main() {
   // Load provider
   const clusterUrl = process.env.ANCHOR_PROVIDER_URL || "https://api.devnet.solana.com";
   const walletPath = process.env.ANCHOR_WALLET
-    || `${process.env.HOME}/.config/solana/id.json`;
+    || `${process.env.HOME}/Documents/secret/sss-devnet-keypair.json`;
 
   const walletKeypair = Keypair.fromSecretKey(
     Uint8Array.from(JSON.parse(fs.readFileSync(walletPath, "utf-8"))),

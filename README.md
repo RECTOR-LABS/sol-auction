@@ -427,7 +427,7 @@ The demo script exercises all 3 auction types end-to-end on devnet:
 ```bash
 # Set environment
 export ANCHOR_PROVIDER_URL=https://api.devnet.solana.com
-export ANCHOR_WALLET=~/.config/solana/id.json
+export ANCHOR_WALLET=/path/to/your/devnet-keypair.json
 
 # Run full demo (English + Dutch + Sealed Vickrey + Cancel)
 npx ts-node --esm scripts/devnet-demo.ts

@@ -23,6 +23,7 @@ custom-panic = []
 # init-if-needed intentionally omitted — enables account re-initialization attack surface
 anchor-lang = "0.32.1"
 anchor-spl = { version = "0.32.1", features = ["token"] }
+solana-keccak-hasher = "2.2"
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_os, values("solana"))'] }

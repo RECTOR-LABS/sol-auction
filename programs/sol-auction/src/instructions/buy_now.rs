@@ -2,7 +2,7 @@ use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer as SplTransfer};
 
 use crate::errors::AuctionError;
-use crate::state::{AuctionConfig, AuctionStatus};
+use crate::state::{AuctionConfig, AuctionHouse, AuctionStatus};
 
 pub fn handler(ctx: Context<BuyNow>) -> Result<()> {
   let clock = Clock::get()?;
@@ -38,7 +38,19 @@ pub fn handler(ctx: Context<BuyNow>) -> Result<()> {
   let auction_id_bytes = auction.auction_id.to_le_bytes();
   let bump = auction.bump;
 
-  // Transfer SOL: buyer -> seller
+  // Calculate fee using u128 intermediate to prevent overflow
+  let fee_bps = ctx.accounts.auction_house.fee_bps;
+  let fee = (price as u128)
+    .checked_mul(fee_bps as u128)
+    .ok_or(AuctionError::Overflow)?
+    .checked_div(10_000)
+    .ok_or(AuctionError::Overflow)?;
+  let fee: u64 = fee.try_into().map_err(|_| AuctionError::Overflow)?;
+  let seller_receives = price
+    .checked_sub(fee)
+    .ok_or(AuctionError::Overflow)?;
+
+  // Transfer SOL (minus fee): buyer -> seller
   anchor_lang::system_program::transfer(
     CpiContext::new(
       ctx.accounts.system_program.to_account_info(),
@@ -47,8 +59,22 @@ pub fn handler(ctx: Context<BuyNow>) -> Result<()> {
         to: ctx.accounts.seller.to_account_info(),
       },
     ),
-    price,
+    seller_receives,
   )?;
+
+  // Transfer fee: buyer -> treasury
+  if fee > 0 {
+    anchor_lang::system_program::transfer(
+      CpiContext::new(
+        ctx.accounts.system_program.to_account_info(),
+        anchor_lang::system_program::Transfer {
+          from: ctx.accounts.buyer.to_account_info(),
+          to: ctx.accounts.treasury.to_account_info(),
+        },
+      ),
+      fee,
+    )?;
+  }
 
   // Transfer item: vault -> buyer's token account (PDA-signed by auction_config)
   let seeds = &[
@@ -114,6 +140,19 @@ pub struct BuyNow<'info> {
 
   #[account(mut)]
   pub buyer: Signer<'info>,
+
+  #[account(
+    seeds = [b"house", auction_house.authority.as_ref()],
+    bump = auction_house.bump,
+  )]
+  pub auction_house: Account<'info, AuctionHouse>,
+
+  /// CHECK: Treasury receives fee. Validated against auction_house.treasury.
+  #[account(
+    mut,
+    constraint = treasury.key() == auction_house.treasury @ AuctionError::Unauthorized,
+  )]
+  pub treasury: UncheckedAccount<'info>,
 
   pub token_program: Program<'info, Token>,
   pub system_program: Program<'info, System>,

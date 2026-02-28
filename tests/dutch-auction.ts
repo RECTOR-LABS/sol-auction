@@ -91,6 +91,8 @@ describe("dutch_auction", () => {
         buyerItemAccount: buyerAta,
         seller: provider.wallet.publicKey,
         buyer: buyer.publicKey,
+        auctionHouse: housePda,
+        treasury: provider.wallet.publicKey,
       })
       .signers([buyer])
       .rpc();
@@ -144,6 +146,7 @@ describe("dutch_auction", () => {
     await program.methods.buyNow().accounts({
       auctionConfig: auctionPda, itemVault: vaultPda, itemMint: mint,
       buyerItemAccount: buyer1Ata, seller: provider.wallet.publicKey, buyer: buyer1.publicKey,
+      auctionHouse: housePda, treasury: provider.wallet.publicKey,
     }).signers([buyer1]).rpc();
 
     // Second buyer tries to buy settled auction
@@ -155,6 +158,7 @@ describe("dutch_auction", () => {
       await program.methods.buyNow().accounts({
         auctionConfig: auctionPda, itemVault: vaultPda, itemMint: mint,
         buyerItemAccount: buyer2Ata, seller: provider.wallet.publicKey, buyer: buyer2.publicKey,
+        auctionHouse: housePda, treasury: provider.wallet.publicKey,
       }).signers([buyer2]).rpc();
       expect.fail("Should have thrown");
     } catch (e: any) {
@@ -189,6 +193,7 @@ describe("dutch_auction", () => {
       await program.methods.buyNow().accounts({
         auctionConfig: auctionPda, itemVault: vaultPda, itemMint: mint,
         buyerItemAccount: sellerAta, seller: provider.wallet.publicKey, buyer: provider.wallet.publicKey,
+        auctionHouse: housePda, treasury: provider.wallet.publicKey,
       }).rpc();
       expect.fail("Should have thrown");
     } catch (e: any) {

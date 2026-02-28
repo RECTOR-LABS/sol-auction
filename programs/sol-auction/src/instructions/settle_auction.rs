@@ -68,12 +68,13 @@ pub fn handler(ctx: Context<SettleAuction>) -> Result<()> {
     AuctionError::Unauthorized
   );
 
-  // Calculate fee
-  let fee = payment_amount
-    .checked_mul(fee_bps as u64)
+  // Calculate fee using u128 intermediate to prevent overflow on large payments
+  let fee = (payment_amount as u128)
+    .checked_mul(fee_bps as u128)
     .ok_or(AuctionError::Overflow)?
     .checked_div(10_000)
     .ok_or(AuctionError::Overflow)?;
+  let fee: u64 = fee.try_into().map_err(|_| AuctionError::Overflow)?;
   let seller_receives = payment_amount
     .checked_sub(fee)
     .ok_or(AuctionError::Overflow)?;
@@ -178,8 +179,12 @@ pub struct SettleAuction<'info> {
   )]
   pub winner_bid_escrow: Account<'info, BidEscrow>,
 
-  /// CHECK: Winner account for item transfer validation
-  #[account(mut)]
+  /// CHECK: Winner account for item transfer and excess refund.
+  /// Validated to match the bid escrow's bidder.
+  #[account(
+    mut,
+    constraint = winner.key() == winner_bid_escrow.bidder @ AuctionError::Unauthorized,
+  )]
   pub winner: UncheckedAccount<'info>,
 
   /// CHECK: Seller receives payment (minus fee)

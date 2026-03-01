@@ -5,7 +5,7 @@
  * on devnet and outputs Solana Explorer links for every transaction.
  *
  * Usage:
- *   npx ts-node --esm scripts/devnet-demo.ts
+ *   npx tsx scripts/devnet-demo.ts
  *
  * Requirements:
  *   - Program deployed to devnet at HQvAj4GGwhw4cGkxNXX22vz2NnXe5rok4n5Yyqq3WtMC
@@ -31,6 +31,7 @@ import {
 import { keccak_256 } from "@noble/hashes/sha3";
 import * as crypto from "crypto";
 import * as fs from "fs";
+import * as os from "os";
 import * as path from "path";
 import { fileURLToPath } from "url";
 
@@ -88,7 +89,7 @@ async function main() {
   // Load provider
   const clusterUrl = process.env.ANCHOR_PROVIDER_URL || "https://api.devnet.solana.com";
   const walletPath = process.env.ANCHOR_WALLET
-    || `${process.env.HOME}/Documents/secret/solana-devnet.json`;
+    || path.join(os.homedir(), "Documents/secret/solana-devnet.json");
 
   const walletKeypair = Keypair.fromSecretKey(
     Uint8Array.from(JSON.parse(fs.readFileSync(walletPath, "utf-8"))),
@@ -111,8 +112,8 @@ async function main() {
   const balance = await connection.getBalance(authority.publicKey);
   log("Balance", `${(balance / LAMPORTS_PER_SOL).toFixed(4)} SOL`);
 
-  if (balance < 0.5 * LAMPORTS_PER_SOL) {
-    console.error("\n  ✗ Insufficient balance. Need at least 0.5 SOL for demo.");
+  if (balance < 0.05 * LAMPORTS_PER_SOL) {
+    console.error("\n  ✗ Insufficient balance. Need at least 0.05 SOL for demo.");
     process.exit(1);
   }
 
@@ -183,19 +184,19 @@ async function main() {
     program.programId,
   );
 
-  // Create auction: start 1 SOL, increment 0.1 SOL, ends in 8 seconds
+  // Create auction: start 0.005 SOL, increment 0.001 SOL, ends in 15s
   const engCreateSig = await program.methods
     .createAuction(
       engAuctionId,
       {
         english: {
-          startPrice: new anchor.BN(0.05 * LAMPORTS_PER_SOL),
-          minIncrement: new anchor.BN(0.01 * LAMPORTS_PER_SOL),
+          startPrice: new anchor.BN(0.005 * LAMPORTS_PER_SOL),
+          minIncrement: new anchor.BN(0.001 * LAMPORTS_PER_SOL),
           antiSnipeDuration: new anchor.BN(0),
         },
       },
       new anchor.BN(now - 10),
-      new anchor.BN(now + 8),
+      new anchor.BN(now + 15),
     )
     .accounts({
       seller: authority.publicKey,
@@ -207,37 +208,38 @@ async function main() {
   recordTx("create_auction (English)", engCreateSig);
   log("Auction PDA", engAuctionPda.toBase58());
 
-  // Bidder 1
+  // Fund both bidders in parallel (bid + rent + fees)
   const bidder1 = Keypair.generate();
-  await fundKeypair(connection, payer, bidder1, 0.2 * LAMPORTS_PER_SOL);
+  const bidder2 = Keypair.generate();
+  await Promise.all([
+    fundKeypair(connection, payer, bidder1, 0.01 * LAMPORTS_PER_SOL),
+    fundKeypair(connection, payer, bidder2, 0.015 * LAMPORTS_PER_SOL),
+  ]);
 
   const bid1Sig = await program.methods
-    .placeBid(new anchor.BN(0.05 * LAMPORTS_PER_SOL))
+    .placeBid(new anchor.BN(0.005 * LAMPORTS_PER_SOL))
     .accounts({
       auctionConfig: engAuctionPda,
       bidder: bidder1.publicKey,
     })
     .signers([bidder1])
     .rpc();
-  recordTx("place_bid (Bidder 1: 0.05 SOL)", bid1Sig);
-
-  // Bidder 2
-  const bidder2 = Keypair.generate();
-  await fundKeypair(connection, payer, bidder2, 0.3 * LAMPORTS_PER_SOL);
+  recordTx("place_bid (Bidder 1: 0.005 SOL)", bid1Sig);
 
   const bid2Sig = await program.methods
-    .placeBid(new anchor.BN(0.08 * LAMPORTS_PER_SOL))
+    .placeBid(new anchor.BN(0.008 * LAMPORTS_PER_SOL))
     .accounts({
       auctionConfig: engAuctionPda,
       bidder: bidder2.publicKey,
     })
     .signers([bidder2])
     .rpc();
-  recordTx("place_bid (Bidder 2: 0.08 SOL)", bid2Sig);
+  recordTx("place_bid (Bidder 2: 0.008 SOL)", bid2Sig);
 
   // Wait for auction to end
-  log("Waiting", "for auction to end (~10s)...");
-  await sleep(10_000);
+  const engWaitMs = Math.max(0, (now + 16) * 1000 - Date.now());
+  log("Waiting", `for auction to end (~${Math.ceil(engWaitMs / 1000)}s)...`);
+  await sleep(engWaitMs);
 
   // Settle
   const winnerAta = await createAssociatedTokenAccount(connection, payer, engMint, bidder2.publicKey);
@@ -306,14 +308,14 @@ async function main() {
     program.programId,
   );
 
-  // Start 0.2 SOL, reserve 0.05 SOL, duration 1 hour
+  // Start 0.02 SOL, reserve 0.005 SOL, duration 1 hour
   const dutchCreateSig = await program.methods
     .createAuction(
       dutchAuctionId,
       {
         dutch: {
-          startPrice: new anchor.BN(0.2 * LAMPORTS_PER_SOL),
-          reservePrice: new anchor.BN(0.05 * LAMPORTS_PER_SOL),
+          startPrice: new anchor.BN(0.02 * LAMPORTS_PER_SOL),
+          reservePrice: new anchor.BN(0.005 * LAMPORTS_PER_SOL),
         },
       },
       new anchor.BN(dutchNow - 60),
@@ -329,9 +331,9 @@ async function main() {
   recordTx("create_auction (Dutch)", dutchCreateSig);
   log("Auction PDA", dutchAuctionPda.toBase58());
 
-  // Buyer
+  // Buyer (current price ~0.0197 SOL after 60s decay, fund with headroom)
   const buyer = Keypair.generate();
-  await fundKeypair(connection, payer, buyer, 0.3 * LAMPORTS_PER_SOL);
+  await fundKeypair(connection, payer, buyer, 0.025 * LAMPORTS_PER_SOL);
   const buyerAta = await createAssociatedTokenAccount(connection, payer, dutchMint, buyer.publicKey);
 
   const buySig = await program.methods
@@ -376,18 +378,18 @@ async function main() {
     program.programId,
   );
 
-  // Bidding ends in 8 seconds, reveal period 8 seconds after that
+  // Bidding ends in 10s, reveal duration 60s after bidding ends
   const sealedCreateSig = await program.methods
     .createAuction(
       sealedAuctionId,
       {
         sealedVickrey: {
-          minCollateral: new anchor.BN(0.05 * LAMPORTS_PER_SOL),
-          revealEndTime: new anchor.BN(sealedNow + 20), // reveal ends 20s from now
+          minCollateral: new anchor.BN(0.005 * LAMPORTS_PER_SOL),
+          revealDuration: new anchor.BN(60), // 60s reveal window after bidding ends
         },
       },
       new anchor.BN(sealedNow - 10),
-      new anchor.BN(sealedNow + 8), // bidding ends in 8s
+      new anchor.BN(sealedNow + 10),
     )
     .accounts({
       seller: authority.publicKey,
@@ -399,22 +401,24 @@ async function main() {
   recordTx("create_auction (Sealed Vickrey)", sealedCreateSig);
   log("Auction PDA", sealedAuctionPda.toBase58());
 
-  // Submit sealed bids
+  // Fund sealed bidders in parallel (collateral + rent + fees)
   const sealedBidder1 = Keypair.generate();
   const sealedBidder2 = Keypair.generate();
-  await fundKeypair(connection, payer, sealedBidder1, 0.3 * LAMPORTS_PER_SOL);
-  await fundKeypair(connection, payer, sealedBidder2, 0.3 * LAMPORTS_PER_SOL);
+  await Promise.all([
+    fundKeypair(connection, payer, sealedBidder1, 0.025 * LAMPORTS_PER_SOL),
+    fundKeypair(connection, payer, sealedBidder2, 0.02 * LAMPORTS_PER_SOL),
+  ]);
 
-  // Bidder 1: actual bid 0.15 SOL
+  // Bidder 1: actual bid 0.015 SOL
   const nonce1 = crypto.randomBytes(32);
-  const amount1 = new anchor.BN(0.15 * LAMPORTS_PER_SOL);
+  const amount1 = new anchor.BN(0.015 * LAMPORTS_PER_SOL);
   const hash1Input = Buffer.concat([amount1.toArrayLike(Buffer, "le", 8), nonce1]);
   const hash1 = Buffer.from(keccak_256(hash1Input));
 
   const sealed1Sig = await program.methods
     .submitSealedBid(
       Array.from(hash1),
-      new anchor.BN(0.2 * LAMPORTS_PER_SOL), // collateral (must >= min_collateral)
+      new anchor.BN(0.02 * LAMPORTS_PER_SOL), // collateral (must >= min_collateral)
     )
     .accounts({
       auctionConfig: sealedAuctionPda,
@@ -424,16 +428,16 @@ async function main() {
     .rpc();
   recordTx("submit_sealed_bid (Bidder 1)", sealed1Sig);
 
-  // Bidder 2: actual bid 0.1 SOL
+  // Bidder 2: actual bid 0.01 SOL
   const nonce2 = crypto.randomBytes(32);
-  const amount2 = new anchor.BN(0.1 * LAMPORTS_PER_SOL);
+  const amount2 = new anchor.BN(0.01 * LAMPORTS_PER_SOL);
   const hash2Input = Buffer.concat([amount2.toArrayLike(Buffer, "le", 8), nonce2]);
   const hash2 = Buffer.from(keccak_256(hash2Input));
 
   const sealed2Sig = await program.methods
     .submitSealedBid(
       Array.from(hash2),
-      new anchor.BN(0.15 * LAMPORTS_PER_SOL),
+      new anchor.BN(0.015 * LAMPORTS_PER_SOL),
     )
     .accounts({
       auctionConfig: sealedAuctionPda,
@@ -443,16 +447,30 @@ async function main() {
     .rpc();
   recordTx("submit_sealed_bid (Bidder 2)", sealed2Sig);
 
-  // Wait for bidding to end
-  log("Waiting", "for bidding phase to end (~10s)...");
-  await sleep(10_000);
+  // Wait for bidding to end (extra buffer for devnet clock drift)
+  const sealedBidWaitMs = Math.max(0, (sealedNow + 15) * 1000 - Date.now());
+  log("Waiting", `for bidding phase to end (~${Math.ceil(sealedBidWaitMs / 1000)}s)...`);
+  await sleep(sealedBidWaitMs);
 
-  // Close bidding (permissionless crank)
-  const closeSig = await program.methods
-    .closeBidding()
-    .accounts({ auctionConfig: sealedAuctionPda })
-    .rpc();
-  recordTx("close_bidding", closeSig);
+  // Close bidding (permissionless crank) — retry on clock drift
+  let closeSig: string;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      closeSig = await program.methods
+        .closeBidding()
+        .accounts({ auctionConfig: sealedAuctionPda })
+        .rpc();
+      break;
+    } catch (e: any) {
+      if (e.error?.errorCode?.code === "AuctionStillActive" && attempt < 4) {
+        log("Retry", `devnet clock drift, waiting 3s (attempt ${attempt + 1}/5)...`);
+        await sleep(3000);
+        continue;
+      }
+      throw e;
+    }
+  }
+  recordTx("close_bidding", closeSig!);
 
   // Reveal bids
   const reveal1Sig = await program.methods
@@ -463,7 +481,7 @@ async function main() {
     })
     .signers([sealedBidder1])
     .rpc();
-  recordTx("reveal_bid (Bidder 1: 0.15 SOL)", reveal1Sig);
+  recordTx("reveal_bid (Bidder 1: 0.015 SOL)", reveal1Sig);
 
   const reveal2Sig = await program.methods
     .revealBid(amount2, Array.from(nonce2))
@@ -473,13 +491,15 @@ async function main() {
     })
     .signers([sealedBidder2])
     .rpc();
-  recordTx("reveal_bid (Bidder 2: 0.1 SOL)", reveal2Sig);
+  recordTx("reveal_bid (Bidder 2: 0.01 SOL)", reveal2Sig);
 
-  // Wait for reveal period to end
-  log("Waiting", "for reveal period to end (~12s)...");
-  await sleep(12_000);
+  // Wait for reveal period to end: end_time + reveal_duration + buffer
+  // reveal_end_time = (sealedNow + 10) + 60 = sealedNow + 70
+  const revealWaitMs = Math.max(0, (sealedNow + 75) * 1000 - Date.now());
+  log("Waiting", `for reveal period to end (~${Math.ceil(revealWaitMs / 1000)}s)...`);
+  await sleep(revealWaitMs);
 
-  // Settle (winner = bidder1 at 0.15 SOL, pays second price 0.1 SOL)
+  // Settle (winner = bidder1 at 0.015 SOL, pays second price 0.01 SOL)
   const sealedWinnerAta = await createAssociatedTokenAccount(
     connection, payer, sealedMint, sealedBidder1.publicKey,
   );
@@ -505,7 +525,7 @@ async function main() {
   recordTx("settle_auction (Vickrey — 2nd price)", sealedSettleSig);
 
   const sealedWinnerToken = await getAccount(connection, sealedWinnerAta);
-  log("Verified", `Winner received ${Number(sealedWinnerToken.amount)} token(s) (pays 2nd price: 0.1 SOL)`);
+  log("Verified", `Winner received ${Number(sealedWinnerToken.amount)} token(s) (pays 2nd price: 0.01 SOL)`);
 
   // Loser claims refund
   const [sealedLoserBidEscrow] = PublicKey.findProgramAddressSync(
@@ -550,8 +570,8 @@ async function main() {
       cancelAuctionId,
       {
         english: {
-          startPrice: new anchor.BN(0.1 * LAMPORTS_PER_SOL),
-          minIncrement: new anchor.BN(0.01 * LAMPORTS_PER_SOL),
+          startPrice: new anchor.BN(0.005 * LAMPORTS_PER_SOL),
+          minIncrement: new anchor.BN(0.001 * LAMPORTS_PER_SOL),
           antiSnipeDuration: new anchor.BN(0),
         },
       },

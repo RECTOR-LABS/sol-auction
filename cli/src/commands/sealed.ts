@@ -21,9 +21,21 @@ export function registerSealedCommands(program: Command): void {
     .command("submit-sealed")
     .description("Submit a sealed bid (commitment + collateral)")
     .argument("<AUCTION_PDA>", "Auction PDA address")
-    .requiredOption("--amount <SOL>", "Actual bid amount in SOL (hidden in commitment)", parseFloat)
-    .requiredOption("--collateral <SOL>", "Collateral to deposit in SOL", parseFloat)
-    .option("--nonce <HEX_OR_AUTO>", "32-byte nonce as hex, or 'auto' to generate", "auto")
+    .requiredOption(
+      "--amount <SOL>",
+      "Actual bid amount in SOL (hidden in commitment)",
+      parseFloat
+    )
+    .requiredOption(
+      "--collateral <SOL>",
+      "Collateral to deposit in SOL",
+      parseFloat
+    )
+    .option(
+      "--nonce <HEX_OR_AUTO>",
+      "32-byte nonce as hex, or 'auto' to generate",
+      "auto"
+    )
     .action(async (auctionPdaStr: string, opts) => {
       try {
         const { program: prog, wallet } = getProgram();
@@ -57,10 +69,7 @@ export function registerSealedCommands(program: Command): void {
         info("Nonce", nonce.toString("hex").slice(0, 16) + "...");
 
         const tx = await prog.methods
-          .submitSealedBid(
-            Array.from(commitmentHash) as number[],
-            collateral
-          )
+          .submitSealedBid(Array.from(commitmentHash) as number[], collateral)
           .accounts({
             auctionConfig: auctionPda,
             bidEscrow,
@@ -75,7 +84,9 @@ export function registerSealedCommands(program: Command): void {
         info("Transaction", tx);
         info("Explorer", getExplorerUrl(tx));
         console.log();
-        warn("IMPORTANT: Save your nonce — without it you cannot reveal your bid!");
+        warn(
+          "IMPORTANT: Save your nonce — without it you cannot reveal your bid!"
+        );
         info("Nonce (full)", nonce.toString("hex"));
       } catch (err) {
         handleError(err);
@@ -86,8 +97,15 @@ export function registerSealedCommands(program: Command): void {
     .command("reveal")
     .description("Reveal a previously submitted sealed bid")
     .argument("<AUCTION_PDA>", "Auction PDA address")
-    .requiredOption("--amount <SOL>", "The actual bid amount in SOL", parseFloat)
-    .option("--nonce <HEX>", "32-byte nonce as hex (auto-loaded from saved file if omitted)")
+    .requiredOption(
+      "--amount <SOL>",
+      "The actual bid amount in SOL",
+      parseFloat
+    )
+    .option(
+      "--nonce <HEX>",
+      "32-byte nonce as hex (auto-loaded from saved file if omitted)"
+    )
     .action(async (auctionPdaStr: string, opts) => {
       try {
         const { program: prog, wallet } = getProgram();
@@ -106,7 +124,7 @@ export function registerSealedCommands(program: Command): void {
           if (!saved) {
             throw new Error(
               "No nonce provided and no saved nonce found. " +
-              "Pass --nonce <HEX> or ensure .sol-auction/nonce-<PDA>.hex exists."
+                "Pass --nonce <HEX> or ensure .sol-auction/nonce-<PDA>.hex exists."
             );
           }
           nonce = saved;

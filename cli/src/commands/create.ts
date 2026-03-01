@@ -18,18 +18,29 @@ import {
 } from "../utils.js";
 
 export function registerCreateCommands(program: Command): void {
-  const create = program
-    .command("create")
-    .description("Create a new auction");
+  const create = program.command("create").description("Create a new auction");
 
   create
     .command("english")
     .description("Create an English (ascending) auction")
     .requiredOption("--mint <MINT>", "Token mint address of the item")
     .requiredOption("--start-price <SOL>", "Starting price in SOL", parseFloat)
-    .requiredOption("--duration <SECS>", "Auction duration in seconds", parseInt)
-    .requiredOption("--min-increment <SOL>", "Minimum bid increment in SOL", parseFloat)
-    .option("--anti-snipe <SECS>", "Anti-snipe extension in seconds", parseInt, 300)
+    .requiredOption(
+      "--duration <SECS>",
+      "Auction duration in seconds",
+      parseInt
+    )
+    .requiredOption(
+      "--min-increment <SOL>",
+      "Minimum bid increment in SOL",
+      parseFloat
+    )
+    .option(
+      "--anti-snipe <SECS>",
+      "Anti-snipe extension in seconds",
+      parseInt,
+      300
+    )
     .option("--house <PUBKEY>", "Auction house PDA (auto-derived if omitted)")
     .action(async (opts) => {
       try {
@@ -39,7 +50,11 @@ export function registerCreateCommands(program: Command): void {
 
         // Generate auction ID from timestamp
         const auctionId = new anchor.BN(Date.now());
-        const [auctionPda] = deriveAuctionPda(prog.programId, seller, auctionId);
+        const [auctionPda] = deriveAuctionPda(
+          prog.programId,
+          seller,
+          auctionId
+        );
         const [vaultPda] = deriveVaultPda(prog.programId, auctionPda);
 
         // Derive or use provided house
@@ -95,9 +110,21 @@ export function registerCreateCommands(program: Command): void {
     .command("dutch")
     .description("Create a Dutch (descending) auction")
     .requiredOption("--mint <MINT>", "Token mint address of the item")
-    .requiredOption("--start-price <SOL>", "Starting (highest) price in SOL", parseFloat)
-    .requiredOption("--reserve <SOL>", "Reserve (floor) price in SOL", parseFloat)
-    .requiredOption("--duration <SECS>", "Auction duration in seconds", parseInt)
+    .requiredOption(
+      "--start-price <SOL>",
+      "Starting (highest) price in SOL",
+      parseFloat
+    )
+    .requiredOption(
+      "--reserve <SOL>",
+      "Reserve (floor) price in SOL",
+      parseFloat
+    )
+    .requiredOption(
+      "--duration <SECS>",
+      "Auction duration in seconds",
+      parseInt
+    )
     .option("--house <PUBKEY>", "Auction house PDA (auto-derived if omitted)")
     .action(async (opts) => {
       try {
@@ -106,7 +133,11 @@ export function registerCreateCommands(program: Command): void {
         const seller = wallet.publicKey;
 
         const auctionId = new anchor.BN(Date.now());
-        const [auctionPda] = deriveAuctionPda(prog.programId, seller, auctionId);
+        const [auctionPda] = deriveAuctionPda(
+          prog.programId,
+          seller,
+          auctionId
+        );
         const [vaultPda] = deriveVaultPda(prog.programId, auctionPda);
 
         const housePda = opts.house
@@ -159,9 +190,21 @@ export function registerCreateCommands(program: Command): void {
     .command("sealed")
     .description("Create a sealed-bid Vickrey auction")
     .requiredOption("--mint <MINT>", "Token mint address of the item")
-    .requiredOption("--min-collateral <SOL>", "Minimum collateral in SOL", parseFloat)
-    .requiredOption("--bid-duration <SECS>", "Bidding phase duration in seconds", parseInt)
-    .requiredOption("--reveal-duration <SECS>", "Reveal phase duration in seconds", parseInt)
+    .requiredOption(
+      "--min-collateral <SOL>",
+      "Minimum collateral in SOL",
+      parseFloat
+    )
+    .requiredOption(
+      "--bid-duration <SECS>",
+      "Bidding phase duration in seconds",
+      parseInt
+    )
+    .requiredOption(
+      "--reveal-duration <SECS>",
+      "Reveal phase duration in seconds",
+      parseInt
+    )
     .option("--house <PUBKEY>", "Auction house PDA (auto-derived if omitted)")
     .action(async (opts) => {
       try {
@@ -170,7 +213,11 @@ export function registerCreateCommands(program: Command): void {
         const seller = wallet.publicKey;
 
         const auctionId = new anchor.BN(Date.now());
-        const [auctionPda] = deriveAuctionPda(prog.programId, seller, auctionId);
+        const [auctionPda] = deriveAuctionPda(
+          prog.programId,
+          seller,
+          auctionId
+        );
         const [vaultPda] = deriveVaultPda(prog.programId, auctionPda);
 
         const housePda = opts.house

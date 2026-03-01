@@ -60,11 +60,7 @@ export function deriveBidPda(
   bidder: PublicKey
 ): [PublicKey, number] {
   return PublicKey.findProgramAddressSync(
-    [
-      Buffer.from("bid"),
-      auctionPda.toBuffer(),
-      bidder.toBuffer(),
-    ],
+    [Buffer.from("bid"), auctionPda.toBuffer(), bidder.toBuffer()],
     programId
   );
 }
@@ -75,10 +71,7 @@ export function computeCommitmentHash(
   amount: anchor.BN,
   nonce: Buffer
 ): Buffer {
-  const input = Buffer.concat([
-    amount.toArrayLike(Buffer, "le", 8),
-    nonce,
-  ]);
+  const input = Buffer.concat([amount.toArrayLike(Buffer, "le", 8), nonce]);
   return Buffer.from(keccak_256(input));
 }
 
@@ -109,7 +102,10 @@ export function loadNonce(auctionPda: string): Buffer | null {
 // -- Formatting --
 
 export function formatTimestamp(ts: number): string {
-  return new Date(ts * 1000).toISOString().replace("T", " ").replace("Z", " UTC");
+  return new Date(ts * 1000)
+    .toISOString()
+    .replace("T", " ")
+    .replace("Z", " UTC");
 }
 
 export function formatDuration(seconds: number): string {
@@ -154,7 +150,9 @@ export function header(title: string): void {
 
 export function handleError(err: unknown): never {
   if (err instanceof anchor.AnchorError) {
-    error(`Program error [${err.error.errorCode.code}]: ${err.error.errorMessage}`);
+    error(
+      `Program error [${err.error.errorCode.code}]: ${err.error.errorMessage}`
+    );
   } else if (err instanceof Error) {
     error(err.message);
   } else {

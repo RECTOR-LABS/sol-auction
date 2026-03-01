@@ -24,6 +24,10 @@ Three fundamentally different auction mechanisms unified under one on-chain prog
 
 [Getting Started](#-getting-started) · [Architecture](#-architecture) · [Devnet Proof](#-devnet-deployment) · [Web2 vs Solana](#-web2-vs-solana-architecture-comparison)
 
+### Demo
+
+https://github.com/user-attachments/assets/PLACEHOLDER
+
 </div>
 
 ---

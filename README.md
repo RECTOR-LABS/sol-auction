@@ -420,7 +420,48 @@ sol-auction list --seller <PUBKEY>
 
 **Deploy Tx**: [`3hSCcpWJRAY17itCGnK7oGtcWjqK6X8CNijx2AgiTzKB1LmnsTtQz6qZ9Z3BRpbKzqVeYTcEfo2frwoSwDBMn321`](https://explorer.solana.com/tx/3hSCcpWJRAY17itCGnK7oGtcWjqK6X8CNijx2AgiTzKB1LmnsTtQz6qZ9Z3BRpbKzqVeYTcEfo2frwoSwDBMn321?cluster=devnet)
 
-### Run Demo
+### Devnet Transaction Proof (17 transactions)
+
+All three auction types exercised end-to-end on devnet with verifiable Explorer links:
+
+#### English Auction — Full Lifecycle
+
+| Step | Transaction |
+|---|---|
+| Create auction | [`7FP3xL...nNjEH`](https://explorer.solana.com/tx/7FP3xLhTWwnn8oBKqM1vZgxjaDcW8iVDGy99KzniL3u8i41R5CYq5thcxkRkVArx6Q4CN5fhJT5tB3ytQ7nNjEH?cluster=devnet) |
+| Place bid (Bidder 1: 0.005 SOL) | [`2ACmQK...xPxS`](https://explorer.solana.com/tx/2ACmQK2zcqzoDgkBw6xHuQKErAbr9tajNNsfv9932fRRuH5ijkWyXSootgCfkTS5sA2hrkqSvX9H2iX6pfUpxPxS?cluster=devnet) |
+| Place bid (Bidder 2: 0.008 SOL) | [`5piRXK...86tY`](https://explorer.solana.com/tx/5piRXKuZq8US2odpp1PfqoJyWioZxPYLe65QBs1gDgcWSsUVb84MhqK2GNgWD4bBYG41yseXUgcgKyBxoKxk86tY?cluster=devnet) |
+| Settle auction (winner: Bidder 2) | [`K4BrRL...EXPN`](https://explorer.solana.com/tx/K4BrRLS9oUodoPncoGDMEvgcqbwH17gSJL4NpZLRDzz6R3zjv3cVHjRfdL1fEAG27tgqDX8TjemAbG7uAtiEXPN?cluster=devnet) |
+| Claim refund (Bidder 1) | [`2iaRfK...aH7Q`](https://explorer.solana.com/tx/2iaRfKEN6YLk6kjgRkUsZjZSFSYtw185JojjQawoqoUNy14hbBdoW7u54GiaJqVw181u16MUY5HC8sSycKVUaH7Q?cluster=devnet) |
+
+#### Dutch Auction — Buy Now
+
+| Step | Transaction |
+|---|---|
+| Create auction (start: 0.02 SOL, reserve: 0.005 SOL) | [`5YJgR6...3bTq`](https://explorer.solana.com/tx/5YJgR6fp9RFTZPouZN2EjFqaRgsYhEYpFJHxnaZwjebYrXzQyD343qh3E8aBAtiVipaBVKjrQoZJEB1oDcmj3bTq?cluster=devnet) |
+| Buy now at decayed price | [`23DEWr...urmU`](https://explorer.solana.com/tx/23DEWrhQ7bUDHMQwKKy7praFf3B8uRszj24mu3a3yarZPMKKLEDNuVrW6aX4ASKFKzZeLFvvNyxfE7NWWF8AurmU?cluster=devnet) |
+
+#### Sealed-Bid Vickrey — Commit-Reveal + Second-Price Settlement
+
+| Step | Transaction |
+|---|---|
+| Create auction | [`5h5cQs...55sa`](https://explorer.solana.com/tx/5h5cQsipoz6oqc5JxQzoDwj5M97VbkSnQg9hFkTZvjSn3xuUdLxgXKqM4vNSzxAjYqdTjARUcmExRTYZWVr555sa?cluster=devnet) |
+| Submit sealed bid (Bidder 1) | [`5BvDgC...k9JY`](https://explorer.solana.com/tx/5BvDgCVkzG5Ex9fFbFdULsPX3gzyuhFFnxPC2xAfakPYkmuUqezfXwU5JhM3D9NYoEiK4QyFasjkkMLvjK8vk9JY?cluster=devnet) |
+| Submit sealed bid (Bidder 2) | [`3V75XK...244b`](https://explorer.solana.com/tx/3V75XKZsotJK9gmarie1DdpK96drmPSK2451zJVUtnNeB7izaFYJj9jUbqruN2H1rJjRc1ZUuXFeC6aKUiXb244b?cluster=devnet) |
+| Close bidding (permissionless crank) | [`59QWCh...BVxP`](https://explorer.solana.com/tx/59QWChpeUqNPFkmKRsjJK12PjrSAWUKLUuPASr8DGipZZ6ZXm8esXYHJgnzCBDDVDuLhVmhmnSDF8HRzTdrwBVxP?cluster=devnet) |
+| Reveal bid (Bidder 1: 0.015 SOL) | [`XhGYLH...6bP`](https://explorer.solana.com/tx/XhGYLHE5sKUngzWPvZhVLCiAcAvsc9ADzBZw1dbJyEYNAqas1EbKAZq1fAMrmAojWBhuiaAmGaAE1x3C16Da6bP?cluster=devnet) |
+| Reveal bid (Bidder 2: 0.01 SOL) | [`3bbKiQ...ZUvz`](https://explorer.solana.com/tx/3bbKiQCfVX8WoG98ENAmE2DRk2SWytPeM8HgWwumLoPts1i3eiHT2ybChpuZ6ctt5jU1aK6Rm2KaXsidARgKZUvz?cluster=devnet) |
+| Settle auction (winner pays 2nd price: 0.01 SOL) | [`4KXkap...8NBJ`](https://explorer.solana.com/tx/4KXkapCwP3b7g2vjW3rJtS3eJtYVw1Fdw1AmJFDBqabKiU6nMZQWjVMNqj7scaPXsdTUVkhbPabHcKXVFMwX8NBJ?cluster=devnet) |
+| Claim refund (losing Bidder 2) | [`p1Rxo1...LnB8`](https://explorer.solana.com/tx/p1Rxo1rQ8CxgmptLjRiDJ6opAwVL2hcQTeDH7FtNNtqMQtBqirbAqcQ18EtN6vYUTjgNHZvYwP9DVhrQvkWLnB8?cluster=devnet) |
+
+#### Cancel Auction
+
+| Step | Transaction |
+|---|---|
+| Create auction | [`3eupPp...EBEj`](https://explorer.solana.com/tx/3eupPpRrWpXosNCwYVKxrpM4rZNfg7HKqoomBpkBenAh96vfeS48bQpUcUyeEsLrxBcMtTQbmfH6H2as7DZ9EBEj?cluster=devnet) |
+| Cancel auction (item returned to seller) | [`2dLvUw...m7XN`](https://explorer.solana.com/tx/2dLvUw36MFqSkMt19ZdzUa4zkB8RrKHwZgj6yhqWzDBnrphBbbMUT8YF72ss9SL2PnDggYKkpb6gAx4batASm7XN?cluster=devnet) |
+
+### Run Demo Yourself
 
 The demo script exercises all 3 auction types end-to-end on devnet:
 
@@ -430,14 +471,8 @@ export ANCHOR_PROVIDER_URL=https://api.devnet.solana.com
 export ANCHOR_WALLET=/path/to/your/devnet-keypair.json
 
 # Run full demo (English + Dutch + Sealed Vickrey + Cancel)
-npx ts-node --esm scripts/devnet-demo.ts
+npx tsx scripts/devnet-demo.ts
 ```
-
-The demo creates 4 auctions and generates Explorer links for every transaction:
-1. **English** — create, bid (2 bidders), settle, refund
-2. **Dutch** — create, buy at decayed price
-3. **Sealed Vickrey** — create, submit 2 sealed bids, close bidding, reveal, settle at 2nd price, refund
-4. **Cancel** — create and cancel (item returned)
 
 ---
 

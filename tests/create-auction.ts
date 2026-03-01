@@ -22,7 +22,7 @@ describe("create_auction", () => {
     // Initialize auction house (idempotent)
     [housePda] = anchor.web3.PublicKey.findProgramAddressSync(
       [Buffer.from("house"), provider.wallet.publicKey.toBuffer()],
-      program.programId,
+      program.programId
     );
 
     try {
@@ -43,13 +43,13 @@ describe("create_auction", () => {
       payer,
       provider.wallet.publicKey,
       null,
-      0,
+      0
     );
     sellerAta = await createAssociatedTokenAccount(
       provider.connection,
       payer,
       mint,
-      provider.wallet.publicKey,
+      provider.wallet.publicKey
     );
     await mintTo(
       provider.connection,
@@ -57,7 +57,7 @@ describe("create_auction", () => {
       mint,
       sellerAta,
       provider.wallet.publicKey,
-      1,
+      1
     );
   });
 
@@ -71,12 +71,12 @@ describe("create_auction", () => {
         provider.wallet.publicKey.toBuffer(),
         auctionId.toArrayLike(Buffer, "le", 8),
       ],
-      program.programId,
+      program.programId
     );
 
     const [vaultPda] = anchor.web3.PublicKey.findProgramAddressSync(
       [Buffer.from("vault"), auctionPda.toBuffer()],
-      program.programId,
+      program.programId
     );
 
     await program.methods
@@ -90,7 +90,7 @@ describe("create_auction", () => {
           },
         },
         new anchor.BN(now + 10),
-        new anchor.BN(now + 3610),
+        new anchor.BN(now + 3610)
       )
       .accounts({
         seller: provider.wallet.publicKey,
@@ -103,7 +103,7 @@ describe("create_auction", () => {
     // Verify auction state
     const auction = await program.account.auctionConfig.fetch(auctionPda);
     expect(auction.seller.toBase58()).to.equal(
-      provider.wallet.publicKey.toBase58(),
+      provider.wallet.publicKey.toBase58()
     );
     expect(auction.auctionId.toNumber()).to.equal(1);
     expect(JSON.stringify(auction.status)).to.include("created");
@@ -126,13 +126,13 @@ describe("create_auction", () => {
       payer,
       provider.wallet.publicKey,
       null,
-      0,
+      0
     );
     const sellerAta2 = await createAssociatedTokenAccount(
       provider.connection,
       payer,
       mint2,
-      provider.wallet.publicKey,
+      provider.wallet.publicKey
     );
     await mintTo(
       provider.connection,
@@ -140,7 +140,7 @@ describe("create_auction", () => {
       mint2,
       sellerAta2,
       provider.wallet.publicKey,
-      1,
+      1
     );
 
     const auctionId = new anchor.BN(99);
@@ -158,7 +158,7 @@ describe("create_auction", () => {
             },
           },
           new anchor.BN(now + 100),
-          new anchor.BN(now + 50), // end before start
+          new anchor.BN(now + 50) // end before start
         )
         .accounts({
           seller: provider.wallet.publicKey,

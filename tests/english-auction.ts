@@ -30,21 +30,42 @@ describe("english_auction", () => {
     // Init house (idempotent)
     [housePda] = anchor.web3.PublicKey.findProgramAddressSync(
       [Buffer.from("house"), provider.wallet.publicKey.toBuffer()],
-      program.programId,
+      program.programId
     );
     try {
       await program.account.auctionHouse.fetch(housePda);
     } catch {
-      await program.methods.initializeHouse(500).accounts({
-        authority: provider.wallet.publicKey,
-      }).rpc();
+      await program.methods
+        .initializeHouse(500)
+        .accounts({
+          authority: provider.wallet.publicKey,
+        })
+        .rpc();
     }
 
     // Create mint + seller ATA + mint 1 token
     const payer = (provider.wallet as anchor.Wallet).payer;
-    mint = await createMint(provider.connection, payer, provider.wallet.publicKey, null, 0);
-    sellerAta = await createAssociatedTokenAccount(provider.connection, payer, mint, provider.wallet.publicKey);
-    await mintTo(provider.connection, payer, mint, sellerAta, provider.wallet.publicKey, 1);
+    mint = await createMint(
+      provider.connection,
+      payer,
+      provider.wallet.publicKey,
+      null,
+      0
+    );
+    sellerAta = await createAssociatedTokenAccount(
+      provider.connection,
+      payer,
+      mint,
+      provider.wallet.publicKey
+    );
+    await mintTo(
+      provider.connection,
+      payer,
+      mint,
+      sellerAta,
+      provider.wallet.publicKey,
+      1
+    );
 
     // Create auction with start_time in the past so it's immediately biddable
     const now = Math.floor(Date.now() / 1000);
@@ -57,7 +78,7 @@ describe("english_auction", () => {
         provider.wallet.publicKey.toBuffer(),
         auctionId.toArrayLike(Buffer, "le", 8),
       ],
-      program.programId,
+      program.programId
     );
 
     await program.methods
@@ -71,7 +92,7 @@ describe("english_auction", () => {
           },
         },
         new anchor.BN(startTime),
-        new anchor.BN(endTime),
+        new anchor.BN(endTime)
       )
       .accounts({
         seller: provider.wallet.publicKey,
@@ -86,7 +107,7 @@ describe("english_auction", () => {
     const bidder = anchor.web3.Keypair.generate();
     const airdropSig = await provider.connection.requestAirdrop(
       bidder.publicKey,
-      5 * anchor.web3.LAMPORTS_PER_SOL,
+      5 * anchor.web3.LAMPORTS_PER_SOL
     );
     await provider.connection.confirmTransaction(airdropSig);
 
@@ -104,7 +125,7 @@ describe("english_auction", () => {
     // Verify bid escrow
     const [bidEscrowPda] = anchor.web3.PublicKey.findProgramAddressSync(
       [Buffer.from("bid"), auctionPda.toBuffer(), bidder.publicKey.toBuffer()],
-      program.programId,
+      program.programId
     );
     const bid = await program.account.bidEscrow.fetch(bidEscrowPda);
     expect(bid.bidder.toBase58()).to.equal(bidder.publicKey.toBase58());
@@ -114,8 +135,12 @@ describe("english_auction", () => {
     const auction = await program.account.auctionConfig.fetch(auctionPda);
     expect(JSON.stringify(auction.status)).to.include("active");
     const englishType = (auction.auctionType as any).english;
-    expect(englishType.highestBid.toNumber()).to.equal(anchor.web3.LAMPORTS_PER_SOL);
-    expect(englishType.highestBidder.toBase58()).to.equal(bidder.publicKey.toBase58());
+    expect(englishType.highestBid.toNumber()).to.equal(
+      anchor.web3.LAMPORTS_PER_SOL
+    );
+    expect(englishType.highestBidder.toBase58()).to.equal(
+      bidder.publicKey.toBase58()
+    );
     expect(englishType.bidCount).to.equal(1);
   });
 
@@ -123,7 +148,7 @@ describe("english_auction", () => {
     const bidder2 = anchor.web3.Keypair.generate();
     const airdropSig = await provider.connection.requestAirdrop(
       bidder2.publicKey,
-      5 * anchor.web3.LAMPORTS_PER_SOL,
+      5 * anchor.web3.LAMPORTS_PER_SOL
     );
     await provider.connection.confirmTransaction(airdropSig);
 
@@ -141,34 +166,79 @@ describe("english_auction", () => {
 
     const auction = await program.account.auctionConfig.fetch(auctionPda);
     const englishType = (auction.auctionType as any).english;
-    expect(englishType.highestBid.toNumber()).to.equal(1.1 * anchor.web3.LAMPORTS_PER_SOL);
-    expect(englishType.highestBidder.toBase58()).to.equal(bidder2.publicKey.toBase58());
+    expect(englishType.highestBid.toNumber()).to.equal(
+      1.1 * anchor.web3.LAMPORTS_PER_SOL
+    );
+    expect(englishType.highestBidder.toBase58()).to.equal(
+      bidder2.publicKey.toBase58()
+    );
     expect(englishType.bidCount).to.equal(2);
   });
 
   it("rejects bid below start_price (first bid scenario)", async () => {
     // Create a separate auction for this test
     const payer = (provider.wallet as anchor.Wallet).payer;
-    const mint2 = await createMint(provider.connection, payer, provider.wallet.publicKey, null, 0);
-    const ata2 = await createAssociatedTokenAccount(provider.connection, payer, mint2, provider.wallet.publicKey);
-    await mintTo(provider.connection, payer, mint2, ata2, provider.wallet.publicKey, 1);
+    const mint2 = await createMint(
+      provider.connection,
+      payer,
+      provider.wallet.publicKey,
+      null,
+      0
+    );
+    const ata2 = await createAssociatedTokenAccount(
+      provider.connection,
+      payer,
+      mint2,
+      provider.wallet.publicKey
+    );
+    await mintTo(
+      provider.connection,
+      payer,
+      mint2,
+      ata2,
+      provider.wallet.publicKey,
+      1
+    );
 
     const aid = new anchor.BN(101);
     const now = Math.floor(Date.now() / 1000);
 
     const [apda] = anchor.web3.PublicKey.findProgramAddressSync(
-      [Buffer.from("auction"), provider.wallet.publicKey.toBuffer(), aid.toArrayLike(Buffer, "le", 8)],
-      program.programId,
+      [
+        Buffer.from("auction"),
+        provider.wallet.publicKey.toBuffer(),
+        aid.toArrayLike(Buffer, "le", 8),
+      ],
+      program.programId
     );
 
     await program.methods
-      .createAuction(aid, { english: { startPrice, minIncrement, antiSnipeDuration: new anchor.BN(300) } }, new anchor.BN(now - 60), new anchor.BN(now + 3600))
-      .accounts({ seller: provider.wallet.publicKey, auctionHouse: housePda, itemMint: mint2, sellerItemAccount: ata2 })
+      .createAuction(
+        aid,
+        {
+          english: {
+            startPrice,
+            minIncrement,
+            antiSnipeDuration: new anchor.BN(300),
+          },
+        },
+        new anchor.BN(now - 60),
+        new anchor.BN(now + 3600)
+      )
+      .accounts({
+        seller: provider.wallet.publicKey,
+        auctionHouse: housePda,
+        itemMint: mint2,
+        sellerItemAccount: ata2,
+      })
       .rpc();
 
     const lowBidder = anchor.web3.Keypair.generate();
     await provider.connection.confirmTransaction(
-      await provider.connection.requestAirdrop(lowBidder.publicKey, 5 * anchor.web3.LAMPORTS_PER_SOL),
+      await provider.connection.requestAirdrop(
+        lowBidder.publicKey,
+        5 * anchor.web3.LAMPORTS_PER_SOL
+      )
     );
 
     try {
@@ -188,7 +258,10 @@ describe("english_auction", () => {
     // Need >= 1.2 SOL
     const lowBidder = anchor.web3.Keypair.generate();
     await provider.connection.confirmTransaction(
-      await provider.connection.requestAirdrop(lowBidder.publicKey, 5 * anchor.web3.LAMPORTS_PER_SOL),
+      await provider.connection.requestAirdrop(
+        lowBidder.publicKey,
+        5 * anchor.web3.LAMPORTS_PER_SOL
+      )
     );
 
     try {
@@ -206,21 +279,59 @@ describe("english_auction", () => {
   it("seller cannot bid on own auction", async () => {
     // Create a fresh auction where wallet is both seller and would-be bidder
     const payer = (provider.wallet as anchor.Wallet).payer;
-    const mint3 = await createMint(provider.connection, payer, provider.wallet.publicKey, null, 0);
-    const ata3 = await createAssociatedTokenAccount(provider.connection, payer, mint3, provider.wallet.publicKey);
-    await mintTo(provider.connection, payer, mint3, ata3, provider.wallet.publicKey, 1);
+    const mint3 = await createMint(
+      provider.connection,
+      payer,
+      provider.wallet.publicKey,
+      null,
+      0
+    );
+    const ata3 = await createAssociatedTokenAccount(
+      provider.connection,
+      payer,
+      mint3,
+      provider.wallet.publicKey
+    );
+    await mintTo(
+      provider.connection,
+      payer,
+      mint3,
+      ata3,
+      provider.wallet.publicKey,
+      1
+    );
 
     const aid = new anchor.BN(102);
     const now = Math.floor(Date.now() / 1000);
 
     const [apda] = anchor.web3.PublicKey.findProgramAddressSync(
-      [Buffer.from("auction"), provider.wallet.publicKey.toBuffer(), aid.toArrayLike(Buffer, "le", 8)],
-      program.programId,
+      [
+        Buffer.from("auction"),
+        provider.wallet.publicKey.toBuffer(),
+        aid.toArrayLike(Buffer, "le", 8),
+      ],
+      program.programId
     );
 
     await program.methods
-      .createAuction(aid, { english: { startPrice, minIncrement, antiSnipeDuration: new anchor.BN(300) } }, new anchor.BN(now - 60), new anchor.BN(now + 3600))
-      .accounts({ seller: provider.wallet.publicKey, auctionHouse: housePda, itemMint: mint3, sellerItemAccount: ata3 })
+      .createAuction(
+        aid,
+        {
+          english: {
+            startPrice,
+            minIncrement,
+            antiSnipeDuration: new anchor.BN(300),
+          },
+        },
+        new anchor.BN(now - 60),
+        new anchor.BN(now + 3600)
+      )
+      .accounts({
+        seller: provider.wallet.publicKey,
+        auctionHouse: housePda,
+        itemMint: mint3,
+        sellerItemAccount: ata3,
+      })
       .rpc();
 
     try {

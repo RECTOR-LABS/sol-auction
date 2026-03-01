@@ -12,9 +12,7 @@ const IDL_PATH = path.resolve(__dirname, "../../target/idl/sol_auction.json");
 
 function loadIdl(): any {
   if (!fs.existsSync(IDL_PATH)) {
-    throw new Error(
-      `IDL not found at ${IDL_PATH}. Run 'anchor build' first.`
-    );
+    throw new Error(`IDL not found at ${IDL_PATH}. Run 'anchor build' first.`);
   }
   return JSON.parse(fs.readFileSync(IDL_PATH, "utf-8"));
 }
@@ -29,13 +27,12 @@ export function getProgram(): ProgramClient {
   const clusterUrl =
     process.env.ANCHOR_PROVIDER_URL || "https://api.devnet.solana.com";
   const walletPath =
-    process.env.ANCHOR_WALLET ||
-    `${process.env.HOME}/.config/solana/id.json`;
+    process.env.ANCHOR_WALLET || `${process.env.HOME}/.config/solana/id.json`;
 
   if (!fs.existsSync(walletPath)) {
     throw new Error(
       `Wallet keypair not found at ${walletPath}. ` +
-      `Set ANCHOR_WALLET or run 'solana-keygen new'.`
+        `Set ANCHOR_WALLET or run 'solana-keygen new'.`
     );
   }
 

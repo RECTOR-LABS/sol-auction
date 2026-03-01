@@ -67,16 +67,18 @@ async function fundKeypair(
   connection: Connection,
   payer: Keypair,
   target: Keypair,
-  lamports: number,
+  lamports: number
 ): Promise<string> {
   const tx = new anchor.web3.Transaction().add(
     SystemProgram.transfer({
       fromPubkey: payer.publicKey,
       toPubkey: target.publicKey,
       lamports,
-    }),
+    })
   );
-  const sig = await anchor.web3.sendAndConfirmTransaction(connection, tx, [payer]);
+  const sig = await anchor.web3.sendAndConfirmTransaction(connection, tx, [
+    payer,
+  ]);
   return sig;
 }
 
@@ -87,16 +89,20 @@ async function main() {
   console.log("─".repeat(60));
 
   // Load provider
-  const clusterUrl = process.env.ANCHOR_PROVIDER_URL || "https://api.devnet.solana.com";
-  const walletPath = process.env.ANCHOR_WALLET
-    || path.join(os.homedir(), "Documents/secret/solana-devnet.json");
+  const clusterUrl =
+    process.env.ANCHOR_PROVIDER_URL || "https://api.devnet.solana.com";
+  const walletPath =
+    process.env.ANCHOR_WALLET ||
+    path.join(os.homedir(), "Documents/secret/solana-devnet.json");
 
   const walletKeypair = Keypair.fromSecretKey(
-    Uint8Array.from(JSON.parse(fs.readFileSync(walletPath, "utf-8"))),
+    Uint8Array.from(JSON.parse(fs.readFileSync(walletPath, "utf-8")))
   );
   const connection = new Connection(clusterUrl, "confirmed");
   const wallet = new anchor.Wallet(walletKeypair);
-  const provider = new anchor.AnchorProvider(connection, wallet, { commitment: "confirmed" });
+  const provider = new anchor.AnchorProvider(connection, wallet, {
+    commitment: "confirmed",
+  });
   anchor.setProvider(provider);
 
   const idlPath = path.resolve(__dirname, "../target/idl/sol_auction.json");
@@ -113,7 +119,9 @@ async function main() {
   log("Balance", `${(balance / LAMPORTS_PER_SOL).toFixed(4)} SOL`);
 
   if (balance < 0.05 * LAMPORTS_PER_SOL) {
-    console.error("\n  ✗ Insufficient balance. Need at least 0.05 SOL for demo.");
+    console.error(
+      "\n  ✗ Insufficient balance. Need at least 0.05 SOL for demo."
+    );
     process.exit(1);
   }
 
@@ -130,7 +138,7 @@ async function main() {
 
   const [housePda] = PublicKey.findProgramAddressSync(
     [Buffer.from("house"), authority.publicKey.toBuffer()],
-    program.programId,
+    program.programId
   );
 
   let houseExists = false;
@@ -154,9 +162,23 @@ async function main() {
   }
 
   // Helper to create a token mint and fund seller's ATA with 1 token
-  async function createItemToken(): Promise<{ mint: PublicKey; sellerAta: PublicKey }> {
-    const mint = await createMint(connection, payer, authority.publicKey, null, 0);
-    const sellerAta = await createAssociatedTokenAccount(connection, payer, mint, authority.publicKey);
+  async function createItemToken(): Promise<{
+    mint: PublicKey;
+    sellerAta: PublicKey;
+  }> {
+    const mint = await createMint(
+      connection,
+      payer,
+      authority.publicKey,
+      null,
+      0
+    );
+    const sellerAta = await createAssociatedTokenAccount(
+      connection,
+      payer,
+      mint,
+      authority.publicKey
+    );
     await mintTo(connection, payer, mint, sellerAta, authority, 1);
     return { mint, sellerAta };
   }
@@ -177,11 +199,11 @@ async function main() {
       authority.publicKey.toBuffer(),
       engAuctionId.toArrayLike(Buffer, "le", 8),
     ],
-    program.programId,
+    program.programId
   );
   const [engVaultPda] = PublicKey.findProgramAddressSync(
     [Buffer.from("vault"), engAuctionPda.toBuffer()],
-    program.programId,
+    program.programId
   );
 
   // Create auction: start 0.005 SOL, increment 0.001 SOL, ends in 15s
@@ -196,7 +218,7 @@ async function main() {
         },
       },
       new anchor.BN(now - 10),
-      new anchor.BN(now + 15),
+      new anchor.BN(now + 15)
     )
     .accounts({
       seller: authority.publicKey,
@@ -242,10 +264,19 @@ async function main() {
   await sleep(engWaitMs);
 
   // Settle
-  const winnerAta = await createAssociatedTokenAccount(connection, payer, engMint, bidder2.publicKey);
+  const winnerAta = await createAssociatedTokenAccount(
+    connection,
+    payer,
+    engMint,
+    bidder2.publicKey
+  );
   const [winnerBidEscrow] = PublicKey.findProgramAddressSync(
-    [Buffer.from("bid"), engAuctionPda.toBuffer(), bidder2.publicKey.toBuffer()],
-    program.programId,
+    [
+      Buffer.from("bid"),
+      engAuctionPda.toBuffer(),
+      bidder2.publicKey.toBuffer(),
+    ],
+    program.programId
   );
 
   const settleSig = await program.methods
@@ -266,8 +297,12 @@ async function main() {
 
   // Bidder 1 claims refund
   const [loserBidEscrow] = PublicKey.findProgramAddressSync(
-    [Buffer.from("bid"), engAuctionPda.toBuffer(), bidder1.publicKey.toBuffer()],
-    program.programId,
+    [
+      Buffer.from("bid"),
+      engAuctionPda.toBuffer(),
+      bidder1.publicKey.toBuffer(),
+    ],
+    program.programId
   );
 
   const refundSig = await program.methods
@@ -289,7 +324,8 @@ async function main() {
 
   header("3. Dutch Auction — Buy Now");
 
-  const { mint: dutchMint, sellerAta: dutchSellerAta } = await createItemToken();
+  const { mint: dutchMint, sellerAta: dutchSellerAta } =
+    await createItemToken();
   log("Item Mint", dutchMint.toBase58());
 
   const dutchAuctionId = new anchor.BN(Date.now());
@@ -301,11 +337,11 @@ async function main() {
       authority.publicKey.toBuffer(),
       dutchAuctionId.toArrayLike(Buffer, "le", 8),
     ],
-    program.programId,
+    program.programId
   );
   const [dutchVaultPda] = PublicKey.findProgramAddressSync(
     [Buffer.from("vault"), dutchAuctionPda.toBuffer()],
-    program.programId,
+    program.programId
   );
 
   // Start 0.02 SOL, reserve 0.005 SOL, duration 1 hour
@@ -319,7 +355,7 @@ async function main() {
         },
       },
       new anchor.BN(dutchNow - 60),
-      new anchor.BN(dutchNow + 3540),
+      new anchor.BN(dutchNow + 3540)
     )
     .accounts({
       seller: authority.publicKey,
@@ -334,7 +370,12 @@ async function main() {
   // Buyer (current price ~0.0197 SOL after 60s decay, fund with headroom)
   const buyer = Keypair.generate();
   await fundKeypair(connection, payer, buyer, 0.025 * LAMPORTS_PER_SOL);
-  const buyerAta = await createAssociatedTokenAccount(connection, payer, dutchMint, buyer.publicKey);
+  const buyerAta = await createAssociatedTokenAccount(
+    connection,
+    payer,
+    dutchMint,
+    buyer.publicKey
+  );
 
   const buySig = await program.methods
     .buyNow()
@@ -359,7 +400,8 @@ async function main() {
 
   header("4. Sealed-Bid Vickrey Auction");
 
-  const { mint: sealedMint, sellerAta: sealedSellerAta } = await createItemToken();
+  const { mint: sealedMint, sellerAta: sealedSellerAta } =
+    await createItemToken();
   log("Item Mint", sealedMint.toBase58());
 
   const sealedAuctionId = new anchor.BN(Date.now());
@@ -371,11 +413,11 @@ async function main() {
       authority.publicKey.toBuffer(),
       sealedAuctionId.toArrayLike(Buffer, "le", 8),
     ],
-    program.programId,
+    program.programId
   );
   const [sealedVaultPda] = PublicKey.findProgramAddressSync(
     [Buffer.from("vault"), sealedAuctionPda.toBuffer()],
-    program.programId,
+    program.programId
   );
 
   // Bidding ends in 10s, reveal duration 60s after bidding ends
@@ -389,7 +431,7 @@ async function main() {
         },
       },
       new anchor.BN(sealedNow - 10),
-      new anchor.BN(sealedNow + 10),
+      new anchor.BN(sealedNow + 10)
     )
     .accounts({
       seller: authority.publicKey,
@@ -412,13 +454,16 @@ async function main() {
   // Bidder 1: actual bid 0.015 SOL
   const nonce1 = crypto.randomBytes(32);
   const amount1 = new anchor.BN(0.015 * LAMPORTS_PER_SOL);
-  const hash1Input = Buffer.concat([amount1.toArrayLike(Buffer, "le", 8), nonce1]);
+  const hash1Input = Buffer.concat([
+    amount1.toArrayLike(Buffer, "le", 8),
+    nonce1,
+  ]);
   const hash1 = Buffer.from(keccak_256(hash1Input));
 
   const sealed1Sig = await program.methods
     .submitSealedBid(
       Array.from(hash1),
-      new anchor.BN(0.02 * LAMPORTS_PER_SOL), // collateral (must >= min_collateral)
+      new anchor.BN(0.02 * LAMPORTS_PER_SOL) // collateral (must >= min_collateral)
     )
     .accounts({
       auctionConfig: sealedAuctionPda,
@@ -431,14 +476,14 @@ async function main() {
   // Bidder 2: actual bid 0.01 SOL
   const nonce2 = crypto.randomBytes(32);
   const amount2 = new anchor.BN(0.01 * LAMPORTS_PER_SOL);
-  const hash2Input = Buffer.concat([amount2.toArrayLike(Buffer, "le", 8), nonce2]);
+  const hash2Input = Buffer.concat([
+    amount2.toArrayLike(Buffer, "le", 8),
+    nonce2,
+  ]);
   const hash2 = Buffer.from(keccak_256(hash2Input));
 
   const sealed2Sig = await program.methods
-    .submitSealedBid(
-      Array.from(hash2),
-      new anchor.BN(0.015 * LAMPORTS_PER_SOL),
-    )
+    .submitSealedBid(Array.from(hash2), new anchor.BN(0.015 * LAMPORTS_PER_SOL))
     .accounts({
       auctionConfig: sealedAuctionPda,
       bidder: sealedBidder2.publicKey,
@@ -449,7 +494,10 @@ async function main() {
 
   // Wait for bidding to end (extra buffer for devnet clock drift)
   const sealedBidWaitMs = Math.max(0, (sealedNow + 15) * 1000 - Date.now());
-  log("Waiting", `for bidding phase to end (~${Math.ceil(sealedBidWaitMs / 1000)}s)...`);
+  log(
+    "Waiting",
+    `for bidding phase to end (~${Math.ceil(sealedBidWaitMs / 1000)}s)...`
+  );
   await sleep(sealedBidWaitMs);
 
   // Close bidding (permissionless crank) — retry on clock drift
@@ -463,7 +511,10 @@ async function main() {
       break;
     } catch (e: any) {
       if (e.error?.errorCode?.code === "AuctionStillActive" && attempt < 4) {
-        log("Retry", `devnet clock drift, waiting 3s (attempt ${attempt + 1}/5)...`);
+        log(
+          "Retry",
+          `devnet clock drift, waiting 3s (attempt ${attempt + 1}/5)...`
+        );
         await sleep(3000);
         continue;
       }
@@ -496,16 +547,26 @@ async function main() {
   // Wait for reveal period to end: end_time + reveal_duration + buffer
   // reveal_end_time = (sealedNow + 10) + 60 = sealedNow + 70
   const revealWaitMs = Math.max(0, (sealedNow + 75) * 1000 - Date.now());
-  log("Waiting", `for reveal period to end (~${Math.ceil(revealWaitMs / 1000)}s)...`);
+  log(
+    "Waiting",
+    `for reveal period to end (~${Math.ceil(revealWaitMs / 1000)}s)...`
+  );
   await sleep(revealWaitMs);
 
   // Settle (winner = bidder1 at 0.015 SOL, pays second price 0.01 SOL)
   const sealedWinnerAta = await createAssociatedTokenAccount(
-    connection, payer, sealedMint, sealedBidder1.publicKey,
+    connection,
+    payer,
+    sealedMint,
+    sealedBidder1.publicKey
   );
   const [sealedWinnerBidEscrow] = PublicKey.findProgramAddressSync(
-    [Buffer.from("bid"), sealedAuctionPda.toBuffer(), sealedBidder1.publicKey.toBuffer()],
-    program.programId,
+    [
+      Buffer.from("bid"),
+      sealedAuctionPda.toBuffer(),
+      sealedBidder1.publicKey.toBuffer(),
+    ],
+    program.programId
   );
 
   const sealedSettleSig = await program.methods
@@ -525,12 +586,21 @@ async function main() {
   recordTx("settle_auction (Vickrey — 2nd price)", sealedSettleSig);
 
   const sealedWinnerToken = await getAccount(connection, sealedWinnerAta);
-  log("Verified", `Winner received ${Number(sealedWinnerToken.amount)} token(s) (pays 2nd price: 0.01 SOL)`);
+  log(
+    "Verified",
+    `Winner received ${Number(
+      sealedWinnerToken.amount
+    )} token(s) (pays 2nd price: 0.01 SOL)`
+  );
 
   // Loser claims refund
   const [sealedLoserBidEscrow] = PublicKey.findProgramAddressSync(
-    [Buffer.from("bid"), sealedAuctionPda.toBuffer(), sealedBidder2.publicKey.toBuffer()],
-    program.programId,
+    [
+      Buffer.from("bid"),
+      sealedAuctionPda.toBuffer(),
+      sealedBidder2.publicKey.toBuffer(),
+    ],
+    program.programId
   );
 
   const sealedRefundSig = await program.methods
@@ -548,7 +618,8 @@ async function main() {
 
   header("5. Cancel Auction (no bids)");
 
-  const { mint: cancelMint, sellerAta: cancelSellerAta } = await createItemToken();
+  const { mint: cancelMint, sellerAta: cancelSellerAta } =
+    await createItemToken();
   const cancelAuctionId = new anchor.BN(Date.now());
   const cancelNow = Math.floor(Date.now() / 1000);
 
@@ -558,11 +629,11 @@ async function main() {
       authority.publicKey.toBuffer(),
       cancelAuctionId.toArrayLike(Buffer, "le", 8),
     ],
-    program.programId,
+    program.programId
   );
   const [cancelVaultPda] = PublicKey.findProgramAddressSync(
     [Buffer.from("vault"), cancelAuctionPda.toBuffer()],
-    program.programId,
+    program.programId
   );
 
   const cancelCreateSig = await program.methods
@@ -576,7 +647,7 @@ async function main() {
         },
       },
       new anchor.BN(cancelNow - 10),
-      new anchor.BN(cancelNow + 3600),
+      new anchor.BN(cancelNow + 3600)
     )
     .accounts({
       seller: authority.publicKey,
@@ -600,7 +671,10 @@ async function main() {
   recordTx("cancel_auction", cancelSig);
 
   const cancelledSellerToken = await getAccount(connection, cancelSellerAta);
-  log("Verified", `Seller recovered ${Number(cancelledSellerToken.amount)} token(s)`);
+  log(
+    "Verified",
+    `Seller recovered ${Number(cancelledSellerToken.amount)} token(s)`
+  );
 
   // ── Summary ─────────────────────────────────────────
 

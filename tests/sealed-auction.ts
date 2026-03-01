@@ -30,8 +30,12 @@ describe("sealed_auction", () => {
   // Bidder keypairs and nonces
   const bidder1 = anchor.web3.Keypair.generate();
   const bidder2 = anchor.web3.Keypair.generate();
-  const nonce1 = anchor.web3.Keypair.generate().publicKey.toBytes().slice(0, 32);
-  const nonce2 = anchor.web3.Keypair.generate().publicKey.toBytes().slice(0, 32);
+  const nonce1 = anchor.web3.Keypair.generate()
+    .publicKey.toBytes()
+    .slice(0, 32);
+  const nonce2 = anchor.web3.Keypair.generate()
+    .publicKey.toBytes()
+    .slice(0, 32);
   const bidAmount1 = new anchor.BN(5 * anchor.web3.LAMPORTS_PER_SOL); // 5 SOL
   const bidAmount2 = new anchor.BN(3 * anchor.web3.LAMPORTS_PER_SOL); // 3 SOL
   const minCollateral = new anchor.BN(2 * anchor.web3.LAMPORTS_PER_SOL); // 2 SOL
@@ -40,21 +44,42 @@ describe("sealed_auction", () => {
     // Init house
     [housePda] = anchor.web3.PublicKey.findProgramAddressSync(
       [Buffer.from("house"), provider.wallet.publicKey.toBuffer()],
-      program.programId,
+      program.programId
     );
     try {
       await program.account.auctionHouse.fetch(housePda);
     } catch {
-      await program.methods.initializeHouse(500).accounts({
-        authority: provider.wallet.publicKey,
-      }).rpc();
+      await program.methods
+        .initializeHouse(500)
+        .accounts({
+          authority: provider.wallet.publicKey,
+        })
+        .rpc();
     }
 
     // Mint + ATA
     const payer = (provider.wallet as anchor.Wallet).payer;
-    mint = await createMint(provider.connection, payer, provider.wallet.publicKey, null, 0);
-    sellerAta = await createAssociatedTokenAccount(provider.connection, payer, mint, provider.wallet.publicKey);
-    await mintTo(provider.connection, payer, mint, sellerAta, provider.wallet.publicKey, 1);
+    mint = await createMint(
+      provider.connection,
+      payer,
+      provider.wallet.publicKey,
+      null,
+      0
+    );
+    sellerAta = await createAssociatedTokenAccount(
+      provider.connection,
+      payer,
+      mint,
+      provider.wallet.publicKey
+    );
+    await mintTo(
+      provider.connection,
+      payer,
+      mint,
+      sellerAta,
+      provider.wallet.publicKey,
+      1
+    );
 
     // Create sealed-bid auction (start in past, end in 1 hour)
     const now = Math.floor(Date.now() / 1000);
@@ -64,7 +89,7 @@ describe("sealed_auction", () => {
         provider.wallet.publicKey.toBuffer(),
         auctionId.toArrayLike(Buffer, "le", 8),
       ],
-      program.programId,
+      program.programId
     );
 
     await program.methods
@@ -77,7 +102,7 @@ describe("sealed_auction", () => {
           },
         },
         new anchor.BN(now - 60), // started 1 min ago
-        new anchor.BN(now + 3600), // ends in 1 hour
+        new anchor.BN(now + 3600) // ends in 1 hour
       )
       .accounts({
         seller: provider.wallet.publicKey,
@@ -90,7 +115,10 @@ describe("sealed_auction", () => {
     // Fund bidders
     for (const b of [bidder1, bidder2]) {
       await provider.connection.confirmTransaction(
-        await provider.connection.requestAirdrop(b.publicKey, 20 * anchor.web3.LAMPORTS_PER_SOL),
+        await provider.connection.requestAirdrop(
+          b.publicKey,
+          20 * anchor.web3.LAMPORTS_PER_SOL
+        )
       );
     }
   });
@@ -111,7 +139,7 @@ describe("sealed_auction", () => {
     // Verify bid escrow
     const [bidPda] = anchor.web3.PublicKey.findProgramAddressSync(
       [Buffer.from("bid"), auctionPda.toBuffer(), bidder1.publicKey.toBuffer()],
-      program.programId,
+      program.programId
     );
     const bid = await program.account.bidEscrow.fetch(bidPda);
     expect(bid.bidder.toBase58()).to.equal(bidder1.publicKey.toBase58());
@@ -148,15 +176,26 @@ describe("sealed_auction", () => {
   it("rejects insufficient collateral", async () => {
     const bidder3 = anchor.web3.Keypair.generate();
     await provider.connection.confirmTransaction(
-      await provider.connection.requestAirdrop(bidder3.publicKey, 10 * anchor.web3.LAMPORTS_PER_SOL),
+      await provider.connection.requestAirdrop(
+        bidder3.publicKey,
+        10 * anchor.web3.LAMPORTS_PER_SOL
+      )
     );
 
-    const nonce3 = anchor.web3.Keypair.generate().publicKey.toBytes().slice(0, 32);
-    const commitment = computeCommitment(new anchor.BN(1e9), new Uint8Array(nonce3));
+    const nonce3 = anchor.web3.Keypair.generate()
+      .publicKey.toBytes()
+      .slice(0, 32);
+    const commitment = computeCommitment(
+      new anchor.BN(1e9),
+      new Uint8Array(nonce3)
+    );
 
     try {
       await program.methods
-        .submitSealedBid(commitment, new anchor.BN(1 * anchor.web3.LAMPORTS_PER_SOL)) // 1 SOL < 2 SOL min
+        .submitSealedBid(
+          commitment,
+          new anchor.BN(1 * anchor.web3.LAMPORTS_PER_SOL)
+        ) // 1 SOL < 2 SOL min
         .accounts({ auctionConfig: auctionPda, bidder: bidder3.publicKey })
         .signers([bidder3])
         .rpc();
@@ -210,8 +249,12 @@ describe("sealed_auction_close_and_reveal", () => {
 
   const bidder1 = anchor.web3.Keypair.generate();
   const bidder2 = anchor.web3.Keypair.generate();
-  const nonce1 = anchor.web3.Keypair.generate().publicKey.toBytes().slice(0, 32);
-  const nonce2 = anchor.web3.Keypair.generate().publicKey.toBytes().slice(0, 32);
+  const nonce1 = anchor.web3.Keypair.generate()
+    .publicKey.toBytes()
+    .slice(0, 32);
+  const nonce2 = anchor.web3.Keypair.generate()
+    .publicKey.toBytes()
+    .slice(0, 32);
   const bidAmount1 = new anchor.BN(5 * anchor.web3.LAMPORTS_PER_SOL); // 5 SOL
   const bidAmount2 = new anchor.BN(3 * anchor.web3.LAMPORTS_PER_SOL); // 3 SOL
   const minCollateral = new anchor.BN(2 * anchor.web3.LAMPORTS_PER_SOL);
@@ -220,21 +263,42 @@ describe("sealed_auction_close_and_reveal", () => {
     // Init house (may already exist from previous describe block)
     [housePda] = anchor.web3.PublicKey.findProgramAddressSync(
       [Buffer.from("house"), provider.wallet.publicKey.toBuffer()],
-      program.programId,
+      program.programId
     );
     try {
       await program.account.auctionHouse.fetch(housePda);
     } catch {
-      await program.methods.initializeHouse(500).accounts({
-        authority: provider.wallet.publicKey,
-      }).rpc();
+      await program.methods
+        .initializeHouse(500)
+        .accounts({
+          authority: provider.wallet.publicKey,
+        })
+        .rpc();
     }
 
     // Mint + ATA for this auction
     const payer = (provider.wallet as anchor.Wallet).payer;
-    mint = await createMint(provider.connection, payer, provider.wallet.publicKey, null, 0);
-    sellerAta = await createAssociatedTokenAccount(provider.connection, payer, mint, provider.wallet.publicKey);
-    await mintTo(provider.connection, payer, mint, sellerAta, provider.wallet.publicKey, 1);
+    mint = await createMint(
+      provider.connection,
+      payer,
+      provider.wallet.publicKey,
+      null,
+      0
+    );
+    sellerAta = await createAssociatedTokenAccount(
+      provider.connection,
+      payer,
+      mint,
+      provider.wallet.publicKey
+    );
+    await mintTo(
+      provider.connection,
+      payer,
+      mint,
+      sellerAta,
+      provider.wallet.publicKey,
+      1
+    );
 
     // Create sealed auction with end_time 3 seconds from now
     const now = Math.floor(Date.now() / 1000);
@@ -244,7 +308,7 @@ describe("sealed_auction_close_and_reveal", () => {
         provider.wallet.publicKey.toBuffer(),
         auctionId.toArrayLike(Buffer, "le", 8),
       ],
-      program.programId,
+      program.programId
     );
 
     await program.methods
@@ -256,8 +320,8 @@ describe("sealed_auction_close_and_reveal", () => {
             revealDuration: new anchor.BN(3600), // 1 hour reveal window
           },
         },
-        new anchor.BN(now - 60),  // started 1 min ago
-        new anchor.BN(now + 3),   // ends in 3 seconds
+        new anchor.BN(now - 60), // started 1 min ago
+        new anchor.BN(now + 3) // ends in 3 seconds
       )
       .accounts({
         seller: provider.wallet.publicKey,
@@ -270,21 +334,30 @@ describe("sealed_auction_close_and_reveal", () => {
     // Fund bidders
     for (const b of [bidder1, bidder2]) {
       await provider.connection.confirmTransaction(
-        await provider.connection.requestAirdrop(b.publicKey, 20 * anchor.web3.LAMPORTS_PER_SOL),
+        await provider.connection.requestAirdrop(
+          b.publicKey,
+          20 * anchor.web3.LAMPORTS_PER_SOL
+        )
       );
     }
 
     // Submit sealed bids immediately (within the 3-second window)
     const commitment1 = computeCommitment(bidAmount1, new Uint8Array(nonce1));
     await program.methods
-      .submitSealedBid(commitment1, new anchor.BN(6 * anchor.web3.LAMPORTS_PER_SOL))
+      .submitSealedBid(
+        commitment1,
+        new anchor.BN(6 * anchor.web3.LAMPORTS_PER_SOL)
+      )
       .accounts({ auctionConfig: auctionPda, bidder: bidder1.publicKey })
       .signers([bidder1])
       .rpc();
 
     const commitment2 = computeCommitment(bidAmount2, new Uint8Array(nonce2));
     await program.methods
-      .submitSealedBid(commitment2, new anchor.BN(4 * anchor.web3.LAMPORTS_PER_SOL))
+      .submitSealedBid(
+        commitment2,
+        new anchor.BN(4 * anchor.web3.LAMPORTS_PER_SOL)
+      )
       .accounts({ auctionConfig: auctionPda, bidder: bidder2.publicKey })
       .signers([bidder2])
       .rpc();
@@ -317,16 +390,20 @@ describe("sealed_auction_close_and_reveal", () => {
     // Verify bid escrow updated
     const [bidPda] = anchor.web3.PublicKey.findProgramAddressSync(
       [Buffer.from("bid"), auctionPda.toBuffer(), bidder1.publicKey.toBuffer()],
-      program.programId,
+      program.programId
     );
     const bid = await program.account.bidEscrow.fetch(bidPda);
     expect(bid.revealed).to.be.true;
-    expect(bid.revealedAmount.toNumber()).to.equal(5 * anchor.web3.LAMPORTS_PER_SOL);
+    expect(bid.revealedAmount.toNumber()).to.equal(
+      5 * anchor.web3.LAMPORTS_PER_SOL
+    );
 
     // Verify auction tracks highest bid
     const auction = await program.account.auctionConfig.fetch(auctionPda);
     const sealedType = (auction.auctionType as any).sealedVickrey;
-    expect(sealedType.highestBid.toNumber()).to.equal(5 * anchor.web3.LAMPORTS_PER_SOL);
+    expect(sealedType.highestBid.toNumber()).to.equal(
+      5 * anchor.web3.LAMPORTS_PER_SOL
+    );
     expect(sealedType.winner.toBase58()).to.equal(bidder1.publicKey.toBase58());
 
     // Status should transition to RevealPhase on first reveal
@@ -380,8 +457,12 @@ describe("sealed_auction_close_and_reveal", () => {
     const auction = await program.account.auctionConfig.fetch(auctionPda);
     const sealedType = (auction.auctionType as any).sealedVickrey;
     // bidder1 = 5 SOL (highest), bidder2 = 3 SOL (second)
-    expect(sealedType.highestBid.toNumber()).to.equal(5 * anchor.web3.LAMPORTS_PER_SOL);
-    expect(sealedType.secondBid.toNumber()).to.equal(3 * anchor.web3.LAMPORTS_PER_SOL);
+    expect(sealedType.highestBid.toNumber()).to.equal(
+      5 * anchor.web3.LAMPORTS_PER_SOL
+    );
+    expect(sealedType.secondBid.toNumber()).to.equal(
+      3 * anchor.web3.LAMPORTS_PER_SOL
+    );
     expect(sealedType.winner.toBase58()).to.equal(bidder1.publicKey.toBase58());
   });
 });
@@ -400,8 +481,12 @@ describe("forfeit_unrevealed", () => {
   const auctionId302 = new anchor.BN(302);
   const bidder1 = anchor.web3.Keypair.generate();
   const bidder2 = anchor.web3.Keypair.generate();
-  const nonce1 = anchor.web3.Keypair.generate().publicKey.toBytes().slice(0, 32);
-  const nonce2 = anchor.web3.Keypair.generate().publicKey.toBytes().slice(0, 32);
+  const nonce1 = anchor.web3.Keypair.generate()
+    .publicKey.toBytes()
+    .slice(0, 32);
+  const nonce2 = anchor.web3.Keypair.generate()
+    .publicKey.toBytes()
+    .slice(0, 32);
   const bidAmount1 = new anchor.BN(5 * anchor.web3.LAMPORTS_PER_SOL);
   const bidAmount2 = new anchor.BN(3 * anchor.web3.LAMPORTS_PER_SOL);
   const minCollateral = new anchor.BN(2 * anchor.web3.LAMPORTS_PER_SOL);
@@ -412,20 +497,25 @@ describe("forfeit_unrevealed", () => {
   let auctionPda303: anchor.web3.PublicKey;
   const auctionId303 = new anchor.BN(303);
   const bidder3 = anchor.web3.Keypair.generate();
-  const nonce3 = anchor.web3.Keypair.generate().publicKey.toBytes().slice(0, 32);
+  const nonce3 = anchor.web3.Keypair.generate()
+    .publicKey.toBytes()
+    .slice(0, 32);
   const bidAmount3 = new anchor.BN(4 * anchor.web3.LAMPORTS_PER_SOL);
 
   before(async () => {
     [housePda] = anchor.web3.PublicKey.findProgramAddressSync(
       [Buffer.from("house"), provider.wallet.publicKey.toBuffer()],
-      program.programId,
+      program.programId
     );
     try {
       await program.account.auctionHouse.fetch(housePda);
     } catch {
-      await program.methods.initializeHouse(500).accounts({
-        authority: provider.wallet.publicKey,
-      }).rpc();
+      await program.methods
+        .initializeHouse(500)
+        .accounts({
+          authority: provider.wallet.publicKey,
+        })
+        .rpc();
     }
 
     const payer = (provider.wallet as anchor.Wallet).payer;
@@ -433,7 +523,10 @@ describe("forfeit_unrevealed", () => {
     // Fund all bidders FIRST (airdrops take time)
     for (const b of [bidder1, bidder2, bidder3]) {
       await provider.connection.confirmTransaction(
-        await provider.connection.requestAirdrop(b.publicKey, 20 * anchor.web3.LAMPORTS_PER_SOL),
+        await provider.connection.requestAirdrop(
+          b.publicKey,
+          20 * anchor.web3.LAMPORTS_PER_SOL
+        )
       );
     }
 
@@ -442,9 +535,27 @@ describe("forfeit_unrevealed", () => {
 
     // --- Auction 302: ends in 8s, reveal_duration = 3s ---
     // reveal_end_time = now + 8 + 3 = now + 11 (expires ~11s from creation)
-    mint302 = await createMint(provider.connection, payer, provider.wallet.publicKey, null, 0);
-    sellerAta302 = await createAssociatedTokenAccount(provider.connection, payer, mint302, provider.wallet.publicKey);
-    await mintTo(provider.connection, payer, mint302, sellerAta302, provider.wallet.publicKey, 1);
+    mint302 = await createMint(
+      provider.connection,
+      payer,
+      provider.wallet.publicKey,
+      null,
+      0
+    );
+    sellerAta302 = await createAssociatedTokenAccount(
+      provider.connection,
+      payer,
+      mint302,
+      provider.wallet.publicKey
+    );
+    await mintTo(
+      provider.connection,
+      payer,
+      mint302,
+      sellerAta302,
+      provider.wallet.publicKey,
+      1
+    );
 
     [auctionPda302] = anchor.web3.PublicKey.findProgramAddressSync(
       [
@@ -452,7 +563,7 @@ describe("forfeit_unrevealed", () => {
         provider.wallet.publicKey.toBuffer(),
         auctionId302.toArrayLike(Buffer, "le", 8),
       ],
-      program.programId,
+      program.programId
     );
 
     await program.methods
@@ -465,7 +576,7 @@ describe("forfeit_unrevealed", () => {
           },
         },
         new anchor.BN(now - 60),
-        new anchor.BN(now + 8), // ends in 8 seconds (generous bidding window)
+        new anchor.BN(now + 8) // ends in 8 seconds (generous bidding window)
       )
       .accounts({
         seller: provider.wallet.publicKey,
@@ -477,9 +588,27 @@ describe("forfeit_unrevealed", () => {
 
     // --- Auction 303: ends in 8s, reveal_duration = 3600s (long reveal) ---
     // reveal_end_time = now + 8 + 3600 (far in the future)
-    mint303 = await createMint(provider.connection, payer, provider.wallet.publicKey, null, 0);
-    sellerAta303 = await createAssociatedTokenAccount(provider.connection, payer, mint303, provider.wallet.publicKey);
-    await mintTo(provider.connection, payer, mint303, sellerAta303, provider.wallet.publicKey, 1);
+    mint303 = await createMint(
+      provider.connection,
+      payer,
+      provider.wallet.publicKey,
+      null,
+      0
+    );
+    sellerAta303 = await createAssociatedTokenAccount(
+      provider.connection,
+      payer,
+      mint303,
+      provider.wallet.publicKey
+    );
+    await mintTo(
+      provider.connection,
+      payer,
+      mint303,
+      sellerAta303,
+      provider.wallet.publicKey,
+      1
+    );
 
     [auctionPda303] = anchor.web3.PublicKey.findProgramAddressSync(
       [
@@ -487,7 +616,7 @@ describe("forfeit_unrevealed", () => {
         provider.wallet.publicKey.toBuffer(),
         auctionId303.toArrayLike(Buffer, "le", 8),
       ],
-      program.programId,
+      program.programId
     );
 
     await program.methods
@@ -500,7 +629,7 @@ describe("forfeit_unrevealed", () => {
           },
         },
         new anchor.BN(now - 60),
-        new anchor.BN(now + 8), // ends in 8 seconds
+        new anchor.BN(now + 8) // ends in 8 seconds
       )
       .accounts({
         seller: provider.wallet.publicKey,
@@ -513,14 +642,20 @@ describe("forfeit_unrevealed", () => {
     // Submit bids on auction 302 (two bidders) — within the 8-second window
     const commitment1 = computeCommitment(bidAmount1, new Uint8Array(nonce1));
     await program.methods
-      .submitSealedBid(commitment1, new anchor.BN(6 * anchor.web3.LAMPORTS_PER_SOL))
+      .submitSealedBid(
+        commitment1,
+        new anchor.BN(6 * anchor.web3.LAMPORTS_PER_SOL)
+      )
       .accounts({ auctionConfig: auctionPda302, bidder: bidder1.publicKey })
       .signers([bidder1])
       .rpc();
 
     const commitment2 = computeCommitment(bidAmount2, new Uint8Array(nonce2));
     await program.methods
-      .submitSealedBid(commitment2, new anchor.BN(4 * anchor.web3.LAMPORTS_PER_SOL))
+      .submitSealedBid(
+        commitment2,
+        new anchor.BN(4 * anchor.web3.LAMPORTS_PER_SOL)
+      )
       .accounts({ auctionConfig: auctionPda302, bidder: bidder2.publicKey })
       .signers([bidder2])
       .rpc();
@@ -528,7 +663,10 @@ describe("forfeit_unrevealed", () => {
     // Submit bid on auction 303
     const commitment3 = computeCommitment(bidAmount3, new Uint8Array(nonce3));
     await program.methods
-      .submitSealedBid(commitment3, new anchor.BN(5 * anchor.web3.LAMPORTS_PER_SOL))
+      .submitSealedBid(
+        commitment3,
+        new anchor.BN(5 * anchor.web3.LAMPORTS_PER_SOL)
+      )
       .accounts({ auctionConfig: auctionPda303, bidder: bidder3.publicKey })
       .signers([bidder3])
       .rpc();
@@ -563,8 +701,12 @@ describe("forfeit_unrevealed", () => {
   it("rejects forfeit before reveal period ends", async () => {
     // Auction 303 has reveal_end_time ~1 hour from now — reveal period NOT over
     const [bidPda] = anchor.web3.PublicKey.findProgramAddressSync(
-      [Buffer.from("bid"), auctionPda303.toBuffer(), bidder3.publicKey.toBuffer()],
-      program.programId,
+      [
+        Buffer.from("bid"),
+        auctionPda303.toBuffer(),
+        bidder3.publicKey.toBuffer(),
+      ],
+      program.programId
     );
 
     try {
@@ -588,11 +730,17 @@ describe("forfeit_unrevealed", () => {
 
   it("forfeits unrevealed bid to seller after reveal period", async () => {
     // Auction 302: reveal period has expired, bidder2 never revealed
-    const sellerBalanceBefore = await provider.connection.getBalance(provider.wallet.publicKey);
+    const sellerBalanceBefore = await provider.connection.getBalance(
+      provider.wallet.publicKey
+    );
 
     const [bidPda] = anchor.web3.PublicKey.findProgramAddressSync(
-      [Buffer.from("bid"), auctionPda302.toBuffer(), bidder2.publicKey.toBuffer()],
-      program.programId,
+      [
+        Buffer.from("bid"),
+        auctionPda302.toBuffer(),
+        bidder2.publicKey.toBuffer(),
+      ],
+      program.programId
     );
 
     // Bid escrow exists and is NOT revealed
@@ -613,17 +761,25 @@ describe("forfeit_unrevealed", () => {
     expect(bidAccount).to.be.null;
 
     // Seller received the lamports (rent + collateral)
-    const sellerBalanceAfter = await provider.connection.getBalance(provider.wallet.publicKey);
+    const sellerBalanceAfter = await provider.connection.getBalance(
+      provider.wallet.publicKey
+    );
     expect(sellerBalanceAfter).to.be.greaterThan(sellerBalanceBefore);
   });
 
   it("forfeits second unrevealed bid on same auction", async () => {
     // Auction 302: bidder1 also never revealed — forfeit their bid too
-    const sellerBalanceBefore = await provider.connection.getBalance(provider.wallet.publicKey);
+    const sellerBalanceBefore = await provider.connection.getBalance(
+      provider.wallet.publicKey
+    );
 
     const [bidPda] = anchor.web3.PublicKey.findProgramAddressSync(
-      [Buffer.from("bid"), auctionPda302.toBuffer(), bidder1.publicKey.toBuffer()],
-      program.programId,
+      [
+        Buffer.from("bid"),
+        auctionPda302.toBuffer(),
+        bidder1.publicKey.toBuffer(),
+      ],
+      program.programId
     );
 
     const bidBefore = await program.account.bidEscrow.fetch(bidPda);
@@ -641,7 +797,9 @@ describe("forfeit_unrevealed", () => {
     const bidAccount = await provider.connection.getAccountInfo(bidPda);
     expect(bidAccount).to.be.null;
 
-    const sellerBalanceAfter = await provider.connection.getBalance(provider.wallet.publicKey);
+    const sellerBalanceAfter = await provider.connection.getBalance(
+      provider.wallet.publicKey
+    );
     expect(sellerBalanceAfter).to.be.greaterThan(sellerBalanceBefore);
   });
 });

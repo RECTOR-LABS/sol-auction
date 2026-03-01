@@ -38,7 +38,11 @@ export function registerManageCommands(program: Command): void {
         const seller = auctionAccount.seller as PublicKey;
 
         const [vaultPda] = deriveVaultPda(prog.programId, auctionPda);
-        const [winnerBidEscrow] = deriveBidPda(prog.programId, auctionPda, winner);
+        const [winnerBidEscrow] = deriveBidPda(
+          prog.programId,
+          auctionPda,
+          winner
+        );
         const winnerAta = getAssociatedTokenAddressSync(itemMint, winner);
 
         // Find auction house
@@ -95,7 +99,9 @@ export function registerManageCommands(program: Command): void {
         const seller = wallet.publicKey;
 
         // Fetch auction to get mint
-        const auctionAccount = await (prog.account as any).auctionConfig.fetch(auctionPda);
+        const auctionAccount = await (prog.account as any).auctionConfig.fetch(
+          auctionPda
+        );
         const itemMint = auctionAccount.itemMint as PublicKey;
 
         const [vaultPda] = deriveVaultPda(prog.programId, auctionPda);
@@ -127,7 +133,9 @@ export function registerManageCommands(program: Command): void {
 
   program
     .command("close-bidding")
-    .description("Close bidding phase for a sealed auction (permissionless crank)")
+    .description(
+      "Close bidding phase for a sealed auction (permissionless crank)"
+    )
     .argument("<AUCTION_PDA>", "Auction PDA address")
     .action(async (auctionPdaStr: string) => {
       try {
@@ -162,7 +170,9 @@ export function registerManageCommands(program: Command): void {
         const { program: prog } = getProgram();
         const auctionPda = new PublicKey(auctionPdaStr);
 
-        const auction = await (prog.account as any).auctionConfig.fetch(auctionPda);
+        const auction = await (prog.account as any).auctionConfig.fetch(
+          auctionPda
+        );
         const now = Math.floor(Date.now() / 1000);
 
         header("Auction Status");
@@ -174,10 +184,13 @@ export function registerManageCommands(program: Command): void {
         // Status
         const status = parseStatus(auction.status);
         const statusColor =
-          status === "Active" ? chalk.green(status)
-          : status === "Settled" ? chalk.blue(status)
-          : status === "Cancelled" ? chalk.red(status)
-          : chalk.yellow(status);
+          status === "Active"
+            ? chalk.green(status)
+            : status === "Settled"
+            ? chalk.blue(status)
+            : status === "Cancelled"
+            ? chalk.red(status)
+            : chalk.yellow(status);
         info("Status", statusColor);
 
         // Timing
@@ -203,7 +216,10 @@ export function registerManageCommands(program: Command): void {
           info("Type", chalk.cyan("English (Ascending)"));
           info("Start Price", `${lamportsToSol(e.startPrice)} SOL`);
           info("Min Increment", `${lamportsToSol(e.minIncrement)} SOL`);
-          info("Anti-Snipe", `${(e.antiSnipeDuration as anchor.BN).toNumber()}s`);
+          info(
+            "Anti-Snipe",
+            `${(e.antiSnipeDuration as anchor.BN).toNumber()}s`
+          );
           info("Highest Bid", `${lamportsToSol(e.highestBid)} SOL`);
           info("Bid Count", e.bidCount.toString());
           if (e.highestBidder) {
@@ -221,8 +237,12 @@ export function registerManageCommands(program: Command): void {
             const duration = endTime - startTime;
             const startP = (d.startPrice as anchor.BN).toNumber();
             const reserveP = (d.reservePrice as anchor.BN).toNumber();
-            const currentPrice = startP - Math.floor(((startP - reserveP) * elapsed) / duration);
-            info("Current Price", chalk.bold(`${lamportsToSol(currentPrice)} SOL`));
+            const currentPrice =
+              startP - Math.floor(((startP - reserveP) * elapsed) / duration);
+            info(
+              "Current Price",
+              chalk.bold(`${lamportsToSol(currentPrice)} SOL`)
+            );
           }
         } else if (auctionType.sealedVickrey) {
           const s = auctionType.sealedVickrey;

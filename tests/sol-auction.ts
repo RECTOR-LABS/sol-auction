@@ -11,7 +11,7 @@ describe("initialize_house", () => {
   it("initializes auction house with correct state", async () => {
     const [housePda] = anchor.web3.PublicKey.findProgramAddressSync(
       [Buffer.from("house"), provider.wallet.publicKey.toBuffer()],
-      program.programId,
+      program.programId
     );
 
     // Idempotent: skip if already initialized (another test suite may run first)
@@ -33,9 +33,13 @@ describe("initialize_house", () => {
     }
 
     const house = await program.account.auctionHouse.fetch(housePda);
-    expect(house.authority.toBase58()).to.equal(provider.wallet.publicKey.toBase58());
+    expect(house.authority.toBase58()).to.equal(
+      provider.wallet.publicKey.toBase58()
+    );
     expect(house.feeBps).to.equal(500);
-    expect(house.treasury.toBase58()).to.equal(provider.wallet.publicKey.toBase58());
+    expect(house.treasury.toBase58()).to.equal(
+      provider.wallet.publicKey.toBase58()
+    );
   });
 
   it("rejects fee_bps > 10000", async () => {
@@ -44,7 +48,7 @@ describe("initialize_house", () => {
       const newAuthority = anchor.web3.Keypair.generate();
       const airdropSig = await provider.connection.requestAirdrop(
         newAuthority.publicKey,
-        2 * anchor.web3.LAMPORTS_PER_SOL,
+        2 * anchor.web3.LAMPORTS_PER_SOL
       );
       await provider.connection.confirmTransaction(airdropSig);
 

@@ -1,18 +1,55 @@
-# sol-auction
+<div align="center">
 
-A multi-type auction system rebuilt as a Solana on-chain Rust program. Implements English (ascending), Dutch (descending), and Sealed-Bid Vickrey (second-price) auctions under a single unified program -- demonstrating how Web2 auction backend architecture translates to trustless, deterministic on-chain systems.
+<pre>
+███████╗ ██████╗ ██╗            █████╗ ██╗   ██╗ ██████╗████████╗██╗ ██████╗ ███╗   ██╗
+██╔════╝██╔═══██╗██║           ██╔══██╗██║   ██║██╔════╝╚══██╔══╝██║██╔═══██╗████╗  ██║
+███████╗██║   ██║██║     █████╗███████║██║   ██║██║        ██║   ██║██║   ██║██╔██╗ ██║
+╚════██║██║   ██║██║     ╚════╝██╔══██║██║   ██║██║        ██║   ██║██║   ██║██║╚██╗██║
+███████║╚██████╔╝███████╗      ██║  ██║╚██████╔╝╚██████╗   ██║   ██║╚██████╔╝██║ ╚████║
+╚══════╝ ╚═════╝ ╚══════╝      ╚═╝  ╚═╝ ╚═════╝  ╚═════╝   ╚═╝   ╚═╝ ╚═════╝ ╚═╝  ╚═══╝
+</pre>
 
-**Key innovation**: Three fundamentally different auction mechanisms share one program with a unified account model, enum-based dispatch, and type-specific state machines. No existing Solana implementation unifies all three under one program.
+### Multi-Type Auction Engine on Solana
+
+**English (ascending) · Dutch (descending) · Sealed-Bid Vickrey (second-price)**
+
+Three fundamentally different auction mechanisms unified under one on-chain program with a shared account model, enum-based dispatch, and type-specific state machines.
+
+[![CI](https://github.com/RECTOR-LABS/sol-auction/actions/workflows/ci.yml/badge.svg)](https://github.com/RECTOR-LABS/sol-auction/actions/workflows/ci.yml)
+[![Anchor](https://img.shields.io/badge/Anchor-0.32.1-blueviolet)](https://www.anchor-lang.com/)
+[![Solana](https://img.shields.io/badge/Solana-Devnet-14F195?logo=solana)](https://explorer.solana.com/address/HQvAj4GGwhw4cGkxNXX22vz2NnXe5rok4n5Yyqq3WtMC?cluster=devnet)
+[![Rust](https://img.shields.io/badge/Rust-1.89-orange?logo=rust)](https://www.rust-lang.org/)
+[![Tests](https://img.shields.io/badge/Tests-63%20passing-brightgreen)]()
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
+[Getting Started](#-getting-started) · [Architecture](#-architecture) · [Devnet Proof](#-devnet-deployment) · [Web2 vs Solana](#-web2-vs-solana-architecture-comparison)
+
+</div>
 
 ---
 
-## Auction Types
+## 📚 Table of Contents
+
+- [Auction Types](#-auction-types)
+- [Architecture](#-architecture)
+- [Web2 vs Solana Comparison](#-web2-vs-solana-architecture-comparison)
+- [Design Decisions](#-design-decisions--tradeoffs)
+- [Security Model](#-security-model)
+- [Getting Started](#-getting-started)
+- [CLI Usage](#-cli-usage)
+- [Test Coverage](#-test-coverage)
+- [Devnet Deployment](#-devnet-deployment)
+- [Tech Stack](#-tech-stack)
+
+---
+
+## 🏛️ Auction Types
 
 ### English Auction (Ascending Price)
 
-Bidders compete by placing increasing bids. Each bid is escrowed in a PDA, and the previous highest bidder's funds become reclaimable. Anti-sniping logic extends the deadline when late bids arrive, preventing last-second sniping strategies.
+Bidders compete by placing increasing bids. Each bid is escrowed in a PDA, and the previous highest bidder's funds become reclaimable. Anti-sniping logic extends the deadline when late bids arrive.
 
-**On-chain patterns**: PDA escrow per bidder, Clock sysvar deadline enforcement, automatic anti-snipe extension.
+> **On-chain patterns**: PDA escrow per bidder, Clock sysvar deadline enforcement, automatic anti-snipe extension.
 
 ```
 Seller sets: start_price, min_increment, anti_snipe_duration, duration
@@ -28,30 +65,29 @@ Seller sets: start_price, min_increment, anti_snipe_duration, duration
 
 ### Dutch Auction (Descending Price)
 
-Price starts high and decays linearly toward a reserve floor. The first buyer to accept the current price wins instantly. No bid escrow accounts needed -- the entire purchase settles atomically in a single transaction.
+Price starts high and decays linearly toward a reserve floor. The first buyer to accept the current price wins instantly — no bid escrow needed, the entire purchase settles atomically in one transaction.
 
-**On-chain patterns**: Clock sysvar price calculation, pure math (no stored bids), atomic single-tx settlement.
+> **On-chain patterns**: Clock sysvar price calculation, pure math (no stored bids), atomic single-tx settlement.
 
 ```
-Price decay formula:
-  current = start_price - (elapsed * (start_price - reserve_price) / duration)
+Price decay: current = start - (elapsed × (start - reserve) / duration)
 
   Created ──[time passes, price drops]──> Active ──[buy_now]──> Settled
-                                                                  |
-                      price ───────────────────────               |
-                        |  \                                      |
-                        |   \  linear decay                       |
-                        |    \                                    |
-                        |     \_____ reserve_price                |
-                        |                                         |
-                        start                  end               time
+
+  price ─────────────
+    |  \
+    |   \  linear decay
+    |    \
+    |     \_____ reserve_price
+    |
+    start                  end                                 time
 ```
 
 ### Sealed-Bid Vickrey (Second-Price)
 
-A three-phase auction with cryptographic bid concealment. Bidders submit `Keccak256(bid_amount || nonce)` commitment hashes with escrowed collateral during the bidding phase. After bidding closes, a reveal window opens where bidders must prove their bids match their commitments. The highest bidder wins but pays the **second-highest price** (Vickrey mechanism), incentivizing truthful bidding. Unrevealed bids forfeit their collateral to the seller.
+Three-phase auction with cryptographic bid concealment. Bidders submit `Keccak256(bid_amount || nonce)` commitment hashes with escrowed collateral. After bidding closes, a reveal window opens where bidders prove their bids match their commitments. The highest bidder wins but pays the **second-highest price** (Vickrey mechanism), incentivizing truthful bidding.
 
-**On-chain patterns**: Keccak256 commit-reveal, phased state machine, collateral forfeiture, second-price settlement.
+> **On-chain patterns**: Keccak256 commit-reveal, phased state machine, collateral forfeiture, second-price settlement.
 
 ```
   Created ──[sealed bids]──> Active ──[end_time]──> BiddingClosed
@@ -68,7 +104,7 @@ A three-phase auction with cryptographic bid concealment. Bidders submit `Keccak
 
 ---
 
-## Architecture
+## 🏗️ Architecture
 
 ### Account Model
 
@@ -116,13 +152,13 @@ BidEscrow PDA: seeds = [b"bid", auction_config.key(), bidder.key()]
 
 | Instruction | Auction Type | Description |
 |---|---|---|
-| `initialize_house` | -- | Create global AuctionHouse config with fee rate |
+| `initialize_house` | — | Create global AuctionHouse config with fee rate |
 | `create_auction` | All | Create AuctionConfig PDA + deposit item into vault |
 | `place_bid` | English | Escrow SOL bid, enforce min_increment, update highest bidder, anti-snipe |
 | `buy_now` | Dutch | Purchase at current decaying price, atomic item + SOL transfer |
 | `submit_sealed_bid` | Sealed | Submit Keccak256 commitment hash + escrow collateral |
 | `reveal_bid` | Sealed | Reveal plaintext bid + nonce, verify hash, track 1st/2nd prices |
-| `close_bidding` | Sealed | Transition from Active to BiddingClosed after end_time (permissionless crank) |
+| `close_bidding` | Sealed | Transition Active → BiddingClosed after end_time (permissionless crank) |
 | `settle_auction` | English/Sealed | Transfer item to winner, payment to seller, fee to treasury |
 | `cancel_auction` | All | Cancel (only pre-bid), return item to seller |
 | `claim_refund` | English/Sealed | Losers reclaim escrowed funds after settlement |
@@ -160,24 +196,24 @@ BidEscrow PDA: seeds = [b"bid", auction_config.key(), bidder.key()]
 
 ---
 
-## Web2 vs Solana: Architecture Comparison
+## ⚖️ Web2 vs Solana: Architecture Comparison
 
-This section analyzes how traditional auction platforms (eBay, Sotheby's online, GovPlanet) architect each concern versus how Solana's programming model handles the same problem. The goal is not "Solana good, Web2 bad" -- each approach has genuine advantages depending on context.
+How traditional auction platforms (eBay, Sotheby's, GovPlanet) architect each concern versus Solana's on-chain model.
 
 ### Trust Model
 
 | | Web2 | Solana On-Chain |
 |---|---|---|
-| **Mechanism** | Platform operator holds funds and mediates disputes. Users trust the company's reputation, legal agreements, and regulatory compliance. | Program logic enforces rules. Funds are held in PDAs controlled by deterministic code. No operator can alter outcomes. |
-| **When Web2 wins** | When legal recourse matters (fraud recovery, chargebacks, consumer protection laws). When participants need human judgment for edge cases (item-not-as-described disputes). | |
-| **When Solana wins** | When participants don't share a legal jurisdiction. When the operator is the potential adversary. When "code is law" eliminates platform risk entirely. | |
+| **Mechanism** | Platform operator holds funds and mediates disputes. Users trust the company's reputation and legal agreements. | Program logic enforces rules. Funds are held in PDAs controlled by deterministic code. No operator can alter outcomes. |
+| **When Web2 wins** | Legal recourse matters (fraud recovery, chargebacks). Human judgment needed for edge cases. | |
+| **When Solana wins** | Participants don't share a legal jurisdiction. The operator is the potential adversary. | |
 
 ### Escrow
 
 | | Web2 | Solana On-Chain |
 |---|---|---|
-| **Mechanism** | PayPal/Stripe holds funds in custodial accounts. Release requires multi-step confirmation (item shipped, received, dispute window closed). Chargebacks possible for weeks. | PDA escrow holds lamports with programmatic release conditions. Settlement is atomic -- item and payment transfer in the same transaction or neither does. |
-| **Tradeoff** | Web2 escrow enables dispute resolution and reversibility, which protects buyers. Solana's PDA escrow is irreversible and instant, which eliminates counterparty risk but means there's no recourse for mistakes. In `sol-auction`, each bidder's funds sit in a unique `BidEscrow` PDA derived from `[b"bid", auction.key(), bidder.key()]` -- the program is the only authority that can release them. |
+| **Mechanism** | PayPal/Stripe holds funds in custodial accounts. Release requires multi-step confirmation. Chargebacks possible for weeks. | PDA escrow holds lamports with programmatic release. Settlement is atomic — item and payment transfer in the same transaction or neither does. |
+| **Tradeoff** | Web2 enables dispute resolution and reversibility (buyer protection). Solana's PDA escrow is irreversible and instant (eliminates counterparty risk but no recourse for mistakes). |
 
 ```rust
 // PDA escrow: funds held by program-derived address
@@ -195,15 +231,15 @@ pub bid_escrow: Account<'info, BidEscrow>,
 
 | | Web2 | Solana On-Chain |
 |---|---|---|
-| **Mechanism** | Server-side cron jobs or event schedulers (Celery, Sidekiq, AWS Step Functions). Server clock is authoritative but controllable by the operator. | `Clock` sysvar provides consensus-enforced timestamps. Every validator agrees on the slot time. No single party controls it. |
-| **Tradeoff** | Server clocks are precise (millisecond resolution) and support complex scheduling. Solana's Clock sysvar has ~400ms granularity and can drift slightly between slots. However, server clocks can be manipulated by a malicious operator to extend auctions for preferred bidders -- on-chain timestamps cannot. |
+| **Mechanism** | Server-side cron jobs (Celery, Sidekiq, AWS Step Functions). Server clock is authoritative but controllable by the operator. | `Clock` sysvar provides consensus-enforced timestamps. Every validator agrees on the slot time. No single party controls it. |
+| **Tradeoff** | Server clocks offer millisecond precision. Solana's Clock has ~400ms granularity but cannot be manipulated by a malicious operator. |
 
 ### Sealed Bids
 
 | | Web2 | Solana On-Chain |
 |---|---|---|
-| **Mechanism** | Bids stored in a database. The platform operator can see all bids in plaintext. Participants must trust the operator won't leak, front-run, or modify bids. | Keccak256 commit-reveal: bidders submit `hash(amount || nonce)` during bidding phase, then reveal the plaintext during the reveal phase. The program verifies the hash match. Even the program cannot see bid amounts until reveal. |
-| **Tradeoff** | Web2 sealed bids are simpler (one-step submission) but require complete trust in the operator. Commit-reveal adds UX friction (two transactions, nonce management) but provides a cryptographic guarantee that no one -- not even the validator processing the transaction -- can see your bid amount before you choose to reveal. |
+| **Mechanism** | Bids stored in a database. The platform can see all bids in plaintext. Participants must trust the operator won't leak or front-run. | Keccak256 commit-reveal: bidders submit `hash(amount || nonce)`, then reveal the plaintext. Even the program cannot see bid amounts until reveal. |
+| **Tradeoff** | Web2 is simpler (one step) but requires complete trust. Commit-reveal adds UX friction but provides a cryptographic guarantee against front-running. |
 
 ```rust
 // Verify commitment: keccak256(amount_le_bytes || nonce)
@@ -214,40 +250,15 @@ let computed = solana_keccak_hasher::hash(&hash_input);
 require!(computed.0 == bid.commitment_hash, AuctionError::HashMismatch);
 ```
 
-### Settlement
+### Settlement · Anti-Sniping · Refunds
 
-| | Web2 | Solana On-Chain |
+| Dimension | Web2 | Solana |
 |---|---|---|
-| **Mechanism** | Multi-step: charge buyer -> notify seller -> ship item -> buyer confirms -> release funds. Each step can fail independently. Settlement takes days to weeks. | Atomic: item token transfer + SOL payment + fee deduction happen in a single transaction. Either all succeed or all revert. |
-| **Tradeoff** | Web2 multi-step settlement enables physical goods workflows and buyer protection windows. Solana's atomicity is superior for digital assets where delivery is instant, but cannot handle physical delivery confirmation. For digital assets (NFTs, tokens), atomic settlement eliminates an entire class of "paid but never received" disputes. |
-
-### Anti-Sniping
-
-| | Web2 | Solana On-Chain |
-|---|---|---|
-| **Mechanism** | Platform-specific rules implemented in application code. eBay uses a fixed end time (enabling sniping). Some platforms extend by N minutes on late bids, but the logic is opaque. | Deterministic, transparent extension logic stored on-chain. In `sol-auction`, bids placed within `anti_snipe_duration` of the deadline automatically extend `end_time`. Anyone can verify the rule and its execution. |
-| **Tradeoff** | Web2 anti-sniping rules can be tuned per-auction and updated without redeployment. On-chain rules are rigid but transparent -- bidders can verify the exact extension logic before participating. The rule is the same for everyone, always. |
-
-### Bid History & Auditability
-
-| | Web2 | Solana On-Chain |
-|---|---|---|
-| **Mechanism** | Stored in private databases. The platform decides what to show publicly. Historical data can be altered, deleted, or made unavailable. | Every bid is an on-chain transaction. Bid escrow accounts are publicly readable. The entire auction history is permissionlessly auditable by anyone, forever. |
-| **Tradeoff** | Web2 databases are queryable, indexable, and can support complex analytics. On-chain data requires indexing infrastructure (Geyser, Helius, custom indexers) for equivalent query capabilities. However, on-chain data cannot be retroactively falsified -- useful for regulatory compliance and dispute resolution. |
-
-### Concurrency
-
-| | Web2 | Solana On-Chain |
-|---|---|---|
-| **Mechanism** | Row-level locks, optimistic concurrency control, distributed locks (Redis). Race conditions are possible and must be handled at the application layer. | Solana's runtime locks all accounts touched by a transaction. Two transactions touching the same `AuctionConfig` are serialized by the validator. Race conditions are impossible at the account level. |
-| **Tradeoff** | Web2 concurrency allows higher throughput through fine-grained locking strategies. Solana's account-level locking is coarser -- two bids on the same auction cannot execute in parallel even if they touch different data within the account. This limits throughput per auction but guarantees consistency without any application-level concurrency code. |
-
-### Refunds
-
-| | Web2 | Solana On-Chain |
-|---|---|---|
-| **Mechanism** | Manual process involving support tickets, payment processor API calls, and days-to-weeks of waiting. Chargebacks add another layer of complexity. | Automatic via PDA closure. In `sol-auction`, `claim_refund` closes the `BidEscrow` PDA with Anchor's `close = bidder` constraint, returning all lamports (escrow + rent) to the bidder instantly. |
-| **Tradeoff** | Web2 refund processes can handle partial refunds, conditional refunds, and dispute mediation. On-chain refunds are all-or-nothing and instant -- simpler for the common case but inflexible for edge cases. The advantage is that refund logic is enforced by the program: no support ticket needed, no waiting period, no operator discretion. |
+| **Settlement** | Multi-step over days/weeks (charge → ship → confirm → release). | Atomic: item + payment + fee in one transaction. |
+| **Anti-sniping** | Platform-specific, opaque rules. eBay allows sniping by design. | Deterministic, transparent on-chain extension logic. Verifiable before participating. |
+| **Refunds** | Support tickets, days of waiting, chargebacks. | Automatic via PDA closure — `claim_refund` returns all lamports instantly. |
+| **Bid history** | Private database, alterable. | On-chain transactions — immutable, permissionless audit. |
+| **Concurrency** | Row-level locks, race conditions possible. | Account-level locking by runtime — race conditions impossible. |
 
 ### Summary Matrix
 
@@ -255,46 +266,51 @@ require!(computed.0 == bid.commitment_hash, AuctionError::HashMismatch);
 |---|---|---|
 | Trust | Legal recourse, dispute resolution | Trustless, no operator risk |
 | Escrow | Reversible, buyer protection | Atomic, no counterparty risk |
-| Timing | Millisecond precision, flexible scheduling | Consensus-enforced, tamper-proof |
+| Timing | Millisecond precision | Consensus-enforced, tamper-proof |
 | Sealed bids | Simple UX (one step) | Cryptographic privacy guarantee |
-| Settlement | Physical goods support, protection windows | Atomic, instant for digital assets |
+| Settlement | Physical goods support | Atomic, instant for digital assets |
 | Anti-sniping | Tunable, updatable rules | Transparent, verifiable, deterministic |
-| Bid history | Rich queryability, analytics | Immutable, permissionless audit |
-| Concurrency | Higher throughput, fine-grained locks | Guaranteed consistency, zero race conditions |
+| Bid history | Rich queryability | Immutable, permissionless audit |
+| Concurrency | Higher throughput | Guaranteed consistency, zero race conditions |
 | Refunds | Flexible (partial, conditional) | Instant, automatic, no support needed |
-| Auditability | Internal controls, compliance tooling | Permissionless, immutable record |
 
 ---
 
-## Design Decisions & Tradeoffs
+## 🧠 Design Decisions & Tradeoffs
 
-### Unified Program vs Separate Programs Per Type
+<details>
+<summary><b>Unified Program vs Separate Programs Per Type</b></summary>
 
-All three auction types live in one program. This means a single deployment, shared `AuctionHouse` config, and consistent PDA derivation patterns. The tradeoff is that `AuctionConfig` account size accommodates the largest variant (`SealedVickrey` with its extra fields), so English and Dutch auctions pay slightly more rent than they would with a dedicated, minimal account layout. The benefit is operational simplicity and composability -- a client interacts with one program ID for any auction type.
+All three auction types live in one program — single deployment, shared `AuctionHouse` config, consistent PDA derivation. The tradeoff: `AuctionConfig` account size accommodates the largest variant (`SealedVickrey`), so English and Dutch auctions pay slightly more rent. The benefit is operational simplicity and composability — one program ID for any auction type.
+</details>
 
-### Enum Dispatch vs Trait Objects
+<details>
+<summary><b>Enum Dispatch vs Trait Objects</b></summary>
 
-`AuctionType` is a Rust enum with variant-specific data baked into each variant. This is idiomatic Anchor -- enums serialize/deserialize natively and keep all state in one account. Trait objects (`dyn Auctionable`) would require heap allocation and dynamic dispatch, neither of which is practical in Solana's BPF runtime. Enums give us compile-time exhaustiveness checking and zero-cost dispatch via `match`.
+`AuctionType` is a Rust enum with variant-specific data. Trait objects (`dyn Auctionable`) would require heap allocation and dynamic dispatch — impractical in BPF. Enums give compile-time exhaustiveness checking and zero-cost dispatch via `match`.
+</details>
 
-### SOL Bids (Not SPL Tokens)
+<details>
+<summary><b>SOL Bids (Not SPL Tokens)</b></summary>
 
-Bids are denominated in native SOL (lamports) for simplicity. Supporting SPL token bids would require additional accounts per instruction (token accounts, token program), increase transaction size, and add a token mint parameter to every bid-related operation. For a bounty submission demonstrating architecture patterns, SOL-only keeps the instruction account counts manageable while still showcasing the full escrow and settlement flow. Extending to SPL tokens is straightforward but would roughly double the account count per bid instruction.
+Bids use native SOL (lamports) for simplicity. SPL token support would require additional accounts per instruction, increase transaction size, and add a token mint parameter to every bid operation. Extending to SPL tokens is straightforward but would roughly double account counts per bid instruction.
+</details>
 
-### One PDA Per Bidder (Not a Vector of Bids)
+<details>
+<summary><b>One PDA Per Bidder (Not a Vector of Bids)</b></summary>
 
-Each bidder gets their own `BidEscrow` PDA derived from `[b"bid", auction.key(), bidder.key()]`. The alternative -- storing a `Vec<Bid>` inside `AuctionConfig` -- would require account reallocation on every bid, hit Solana's 10KB account size limit quickly, and make refund logic complex (scanning a vector to find your bid). Separate PDAs scale to any number of bidders, enable parallel processing of refund claims, and keep each instruction's account set small and predictable.
+Each bidder gets a `BidEscrow` PDA from `[b"bid", auction.key(), bidder.key()]`. A `Vec<Bid>` inside `AuctionConfig` would require reallocation on every bid, hit size limits quickly, and complicate refund logic. Separate PDAs scale to any number of bidders and enable parallel refund claims.
+</details>
 
-### Account Size Considerations
+<details>
+<summary><b>Account Size & Compute Budget</b></summary>
 
-`AuctionConfig` uses Anchor's `InitSpace` derive macro. The `AuctionType` enum takes space proportional to the largest variant. With `Option<Pubkey>` fields and u64 counters, the total `AuctionConfig` size stays well under 1KB. `BidEscrow` is fixed-size at approximately 150 bytes. Neither account approaches Solana's 10MB realloc limit, so zero-copy serialization was not required.
-
-### Compute Unit Budget
-
-All instructions stay well within the default 200k CU budget. The most expensive operation is `reveal_bid`, which performs a Keccak256 hash (~100 bytes input) and several account reads/writes. Dutch `buy_now` is the most account-heavy instruction (8 accounts) due to the atomic item transfer + SOL payment + fee deduction in one transaction. No instruction requires CU budget increases.
+`AuctionConfig` uses Anchor's `InitSpace` derive — total stays well under 1KB. `BidEscrow` is ~150 bytes fixed. All instructions stay within the default 200k CU budget. The most expensive is `reveal_bid` (Keccak256 hash + account reads/writes). No instruction requires CU budget increases.
+</details>
 
 ---
 
-## Security Model
+## 🔒 Security Model
 
 ### Access Control
 - Seller identity enforced via PDA seeds (`auction_config` seeds include `seller.key()`)
@@ -310,30 +326,39 @@ All instructions stay well within the default 200k CU budget. The most expensive
 ### State Machine Integrity
 - Each instruction validates `AuctionStatus` before proceeding
 - Status transitions are one-way (no reversal from `Settled` or `Cancelled`)
-- Sealed-bid phase transitions are enforced: `Active` -> `BiddingClosed` -> `RevealPhase` -> `Settled`
+- Sealed-bid phase transitions enforced: `Active` → `BiddingClosed` → `RevealPhase` → `Settled`
 
 ### Escrow Safety
 - PDA authority ensures only the program can move escrowed funds
-- `claim_refund` explicitly checks that the bidder is NOT the winner before closing
-- `forfeit_unrevealed` only executes after `reveal_end_time` has passed
+- `claim_refund` checks bidder is NOT the winner before closing
+- `forfeit_unrevealed` only executes after `reveal_end_time`
 - Anchor's `close` constraint returns rent + escrow to the correct recipient
 
 ### Error Specificity
-20 custom error variants provide actionable feedback:
+
+20 custom error variants with actionable feedback:
 
 ```
-AuctionNotStarted, AuctionAlreadyEnded, AuctionStillActive,
-AuctionAlreadySettled, CannotCancelWithBids, InvalidAuctionStatus,
-InvalidTimeRange, BidTooLow, SellerCannotBid, InsufficientPayment,
-PriceBelowReserve, BiddingPhaseEnded, RevealPhaseNotStarted,
-RevealPhaseEnded, HashMismatch, AlreadyRevealed, BidNotRevealed,
-InsufficientCollateral, Unauthorized, Overflow, InvalidFeeBps,
-NoBids, BidNotFound
+AuctionNotStarted · AuctionAlreadyEnded · AuctionStillActive
+AuctionAlreadySettled · CannotCancelWithBids · InvalidAuctionStatus
+InvalidTimeRange · BidTooLow · SellerCannotBid · InsufficientPayment
+PriceBelowReserve · BiddingPhaseEnded · RevealPhaseNotStarted
+RevealPhaseEnded · HashMismatch · AlreadyRevealed · BidNotRevealed
+InsufficientCollateral · Unauthorized · Overflow · InvalidFeeBps · NoBids
 ```
 
 ---
 
-## Getting Started
+## 🚀 Getting Started
+
+### Prerequisites
+
+- **Rust** 1.89+ (pinned via `rust-toolchain.toml`)
+- **Solana CLI** 2.2.12+
+- **Anchor CLI** 0.32.1
+- **Node.js** 22+ with Yarn
+
+### Build & Test
 
 ```bash
 # Clone
@@ -346,18 +371,27 @@ yarn install
 # Build
 anchor build
 
-# Test (runs all 33 tests across 6 test suites)
-anchor test
+# Run all tests (33 integration + 30 unit)
+anchor test        # integration tests (local validator)
+cargo test --lib   # unit tests (no validator needed)
 
-# Deploy to devnet
+# Lint & format checks
+cargo fmt --all -- --check
+cargo clippy --lib -- -D warnings
+yarn lint
+```
+
+### Deploy to Devnet
+
+```bash
 anchor deploy --provider.cluster devnet
 ```
 
-**Prerequisites**: Rust, Solana CLI, Anchor CLI (v0.30+), Node.js 18+, Yarn.
-
 ---
 
-## CLI Usage
+## 💻 CLI Usage
+
+A TypeScript CLI client for all auction operations:
 
 ```bash
 # Create auctions
@@ -386,43 +420,67 @@ sol-auction list --seller <PUBKEY>
 
 ---
 
-## Test Coverage
+## 🧪 Test Coverage
 
-33 tests across 6 test suites covering all 11 instructions:
+<div align="center">
+
+**63 tests** · 30 unit tests + 33 integration tests · 6 test suites · 11 instructions covered
+
+</div>
+
+### Unit Tests (30 tests — `cargo test --lib`)
+
+Pure logic tests with zero runtime dependencies:
+
+| Module | Tests | Coverage |
+|---|---|---|
+| `helpers.rs` | 18 | Fee calculation (6), commitment hash (4), Vickrey ranking (5), anti-snipe extension (3) |
+| `state/auction.rs` | 12 | Dutch price decay (7), English current price (2), Sealed returns None (1), program ID (1), auxiliary (1) |
+
+### Integration Tests (33 tests — `anchor test`)
+
+Full on-chain tests against local validator:
 
 | Test Suite | Tests | Coverage |
 |---|---|---|
 | `sol-auction.ts` | 2 | `initialize_house`: valid init, invalid fee_bps rejection |
 | `create-auction.ts` | 2 | `create_auction`: English creation + vault deposit, invalid time range rejection |
-| `english-auction.ts` | 5 | `place_bid`: valid first bid, valid second bid with increment, below-start rejection, below-increment rejection, seller-cannot-bid |
-| `dutch-auction.ts` | 3 | `buy_now`: successful purchase at decayed price, double-buy rejection, seller-cannot-buy |
-| `sealed-auction.ts` | 13 | `submit_sealed_bid`: valid commitment, second bid, insufficient collateral. `close_bidding`: premature close rejection, valid close. `reveal_bid`: valid reveal, wrong nonce rejection, double reveal rejection, Vickrey second-price tracking. `forfeit_unrevealed`: premature forfeit rejection, valid forfeit (2 bids) |
-| `settlement.ts` | 8 | `settle_auction`: English settlement with item + SOL transfer, fee_bps deduction verification, premature settle rejection. `claim_refund`: loser refund, winner refund rejection. `cancel_auction`: valid cancel, cancel-with-bids rejection, non-seller rejection |
+| `english-auction.ts` | 5 | `place_bid`: valid bids, increment enforcement, anti-snipe, seller guard |
+| `dutch-auction.ts` | 3 | `buy_now`: decayed price purchase, double-buy rejection, seller guard |
+| `sealed-auction.ts` | 13 | Full commit-reveal lifecycle: submit, close, reveal, Vickrey tracking, forfeit |
+| `settlement.ts` | 8 | Settlement with fee deduction, refund claims, cancel guards |
 
-**Per-instruction coverage**:
-- `initialize_house`: happy path + validation
-- `create_auction`: all 3 types + time validation
-- `place_bid`: bid validation, increment enforcement, anti-snipe, seller guard
-- `buy_now`: price decay, atomic settlement, status guard, seller guard
-- `submit_sealed_bid`: commitment storage, collateral validation
-- `reveal_bid`: hash verification, double-reveal guard, Vickrey tracking
-- `close_bidding`: timing enforcement
-- `forfeit_unrevealed`: reveal period enforcement, collateral transfer
-- `settle_auction`: English + fee math, premature rejection
-- `cancel_auction`: status guard, seller-only enforcement
-- `claim_refund`: loser refund, winner rejection
+### Per-Instruction Coverage
+
+| Instruction | Tested Scenarios |
+|---|---|
+| `initialize_house` | Happy path + validation |
+| `create_auction` | All 3 types + time validation |
+| `place_bid` | Bid validation, increment enforcement, anti-snipe, seller guard |
+| `buy_now` | Price decay, atomic settlement, status guard, seller guard |
+| `submit_sealed_bid` | Commitment storage, collateral validation |
+| `reveal_bid` | Hash verification, double-reveal guard, Vickrey tracking |
+| `close_bidding` | Timing enforcement |
+| `forfeit_unrevealed` | Reveal period enforcement, collateral transfer |
+| `settle_auction` | English + fee math, premature rejection |
+| `cancel_auction` | Status guard, seller-only enforcement |
+| `claim_refund` | Loser refund, winner rejection |
 
 ---
 
-## Devnet Deployment
+## 🌐 Devnet Deployment
+
+<div align="center">
 
 **Program ID**: [`HQvAj4GGwhw4cGkxNXX22vz2NnXe5rok4n5Yyqq3WtMC`](https://explorer.solana.com/address/HQvAj4GGwhw4cGkxNXX22vz2NnXe5rok4n5Yyqq3WtMC?cluster=devnet)
 
-**Deploy Tx**: [`3hSCcpWJRAY17itCGnK7oGtcWjqK6X8CNijx2AgiTzKB1LmnsTtQz6qZ9Z3BRpbKzqVeYTcEfo2frwoSwDBMn321`](https://explorer.solana.com/tx/3hSCcpWJRAY17itCGnK7oGtcWjqK6X8CNijx2AgiTzKB1LmnsTtQz6qZ9Z3BRpbKzqVeYTcEfo2frwoSwDBMn321?cluster=devnet)
+**Deploy Tx**: [`3hSCcpWJRAY...SwDBMn321`](https://explorer.solana.com/tx/3hSCcpWJRAY17itCGnK7oGtcWjqK6X8CNijx2AgiTzKB1LmnsTtQz6qZ9Z3BRpbKzqVeYTcEfo2frwoSwDBMn321?cluster=devnet)
+
+</div>
 
 ### Devnet Transaction Proof (17 transactions)
 
-All three auction types exercised end-to-end on devnet with verifiable Explorer links:
+All three auction types exercised end-to-end on devnet:
 
 #### English Auction — Full Lifecycle
 
@@ -441,7 +499,7 @@ All three auction types exercised end-to-end on devnet with verifiable Explorer 
 | Create auction (start: 0.02 SOL, reserve: 0.005 SOL) | [`5YJgR6...3bTq`](https://explorer.solana.com/tx/5YJgR6fp9RFTZPouZN2EjFqaRgsYhEYpFJHxnaZwjebYrXzQyD343qh3E8aBAtiVipaBVKjrQoZJEB1oDcmj3bTq?cluster=devnet) |
 | Buy now at decayed price | [`23DEWr...urmU`](https://explorer.solana.com/tx/23DEWrhQ7bUDHMQwKKy7praFf3B8uRszj24mu3a3yarZPMKKLEDNuVrW6aX4ASKFKzZeLFvvNyxfE7NWWF8AurmU?cluster=devnet) |
 
-#### Sealed-Bid Vickrey — Commit-Reveal + Second-Price Settlement
+#### Sealed-Bid Vickrey — Commit-Reveal + Second-Price
 
 | Step | Transaction |
 |---|---|
@@ -451,7 +509,7 @@ All three auction types exercised end-to-end on devnet with verifiable Explorer 
 | Close bidding (permissionless crank) | [`59QWCh...BVxP`](https://explorer.solana.com/tx/59QWChpeUqNPFkmKRsjJK12PjrSAWUKLUuPASr8DGipZZ6ZXm8esXYHJgnzCBDDVDuLhVmhmnSDF8HRzTdrwBVxP?cluster=devnet) |
 | Reveal bid (Bidder 1: 0.015 SOL) | [`XhGYLH...6bP`](https://explorer.solana.com/tx/XhGYLHE5sKUngzWPvZhVLCiAcAvsc9ADzBZw1dbJyEYNAqas1EbKAZq1fAMrmAojWBhuiaAmGaAE1x3C16Da6bP?cluster=devnet) |
 | Reveal bid (Bidder 2: 0.01 SOL) | [`3bbKiQ...ZUvz`](https://explorer.solana.com/tx/3bbKiQCfVX8WoG98ENAmE2DRk2SWytPeM8HgWwumLoPts1i3eiHT2ybChpuZ6ctt5jU1aK6Rm2KaXsidARgKZUvz?cluster=devnet) |
-| Settle auction (winner pays 2nd price: 0.01 SOL) | [`4KXkap...8NBJ`](https://explorer.solana.com/tx/4KXkapCwP3b7g2vjW3rJtS3eJtYVw1Fdw1AmJFDBqabKiU6nMZQWjVMNqj7scaPXsdTUVkhbPabHcKXVFMwX8NBJ?cluster=devnet) |
+| Settle (winner pays 2nd price: 0.01 SOL) | [`4KXkap...8NBJ`](https://explorer.solana.com/tx/4KXkapCwP3b7g2vjW3rJtS3eJtYVw1Fdw1AmJFDBqabKiU6nMZQWjVMNqj7scaPXsdTUVkhbPabHcKXVFMwX8NBJ?cluster=devnet) |
 | Claim refund (losing Bidder 2) | [`p1Rxo1...LnB8`](https://explorer.solana.com/tx/p1Rxo1rQ8CxgmptLjRiDJ6opAwVL2hcQTeDH7FtNNtqMQtBqirbAqcQ18EtN6vYUTjgNHZvYwP9DVhrQvkWLnB8?cluster=devnet) |
 
 #### Cancel Auction
@@ -459,11 +517,9 @@ All three auction types exercised end-to-end on devnet with verifiable Explorer 
 | Step | Transaction |
 |---|---|
 | Create auction | [`3eupPp...EBEj`](https://explorer.solana.com/tx/3eupPpRrWpXosNCwYVKxrpM4rZNfg7HKqoomBpkBenAh96vfeS48bQpUcUyeEsLrxBcMtTQbmfH6H2as7DZ9EBEj?cluster=devnet) |
-| Cancel auction (item returned to seller) | [`2dLvUw...m7XN`](https://explorer.solana.com/tx/2dLvUw36MFqSkMt19ZdzUa4zkB8RrKHwZgj6yhqWzDBnrphBbbMUT8YF72ss9SL2PnDggYKkpb6gAx4batASm7XN?cluster=devnet) |
+| Cancel (item returned to seller) | [`2dLvUw...m7XN`](https://explorer.solana.com/tx/2dLvUw36MFqSkMt19ZdzUa4zkB8RrKHwZgj6yhqWzDBnrphBbbMUT8YF72ss9SL2PnDggYKkpb6gAx4batASm7XN?cluster=devnet) |
 
 ### Run Demo Yourself
-
-The demo script exercises all 3 auction types end-to-end on devnet:
 
 ```bash
 # Set environment
@@ -476,17 +532,22 @@ npx tsx scripts/devnet-demo.ts
 
 ---
 
-## Tech Stack
+## 🛠️ Tech Stack
 
-- **Program**: Rust + Anchor Framework (v0.32.1)
-- **Testing**: Anchor test framework with Mocha/Chai (33 tests)
-- **Client**: TypeScript CLI (Commander.js)
-- **Cryptography**: Keccak256 commit-reveal (solana-keccak-hasher on-chain, @noble/hashes client-side)
-- **Network**: Solana Devnet
-- **Program ID**: `HQvAj4GGwhw4cGkxNXX22vz2NnXe5rok4n5Yyqq3WtMC`
+| Component | Technology |
+|---|---|
+| **Program** | Rust + Anchor Framework (v0.32.1) |
+| **Testing** | 30 Rust unit tests + 33 Anchor integration tests |
+| **Client** | TypeScript CLI (Commander.js) |
+| **Cryptography** | Keccak256 commit-reveal (`solana-keccak-hasher` on-chain, `@noble/hashes` client-side) |
+| **CI** | GitHub Actions (3 parallel jobs: Rust checks, Anchor tests, Lint + CLI) |
+| **Network** | Solana Devnet |
+| **Program ID** | `HQvAj4GGwhw4cGkxNXX22vz2NnXe5rok4n5Yyqq3WtMC` |
 
 ---
 
-## License
+<div align="center">
 
-MIT
+**MIT License** · Built by [RECTOR-LABS](https://github.com/RECTOR-LABS)
+
+</div>

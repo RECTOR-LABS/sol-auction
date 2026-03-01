@@ -26,7 +26,10 @@ Three fundamentally different auction mechanisms unified under one on-chain prog
 
 ### Demo
 
-https://github.com/user-attachments/assets/PLACEHOLDER
+
+https://github.com/user-attachments/assets/e676260d-c833-4396-85ce-c3a75430d8f7
+
+
 
 </div>
 

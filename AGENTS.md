@@ -1,0 +1,83 @@
+<!-- Satellite context file — extends the global hub (~/.claude/CLAUDE.md | ~/.pi/agent/AGENTS.md). Host-neutral; project-specific only. Do not duplicate hub standards here. -->
+
+# sol-auction
+
+> Multi-type auction engine on Solana. Three auction mechanisms (English, Dutch, Sealed-Bid Vickrey) unified under one Anchor program with a shared account model and enum-based dispatch.
+
+**Program ID:** `HQvAj4GGwhw4cGkxNXX22vz2NnXe5rok4n5Yyqq3WtMC` (devnet)
+
+## Tech Stack
+
+- **Program:** Rust + Anchor 0.32.1 (`programs/sol-auction/src/`)
+- **Tests:** Anchor integration tests (TypeScript, `tests/`) + Rust unit tests (`cargo test --lib`)
+- **CLI:** TypeScript + Commander.js (`cli/`)
+- **Toolchain:** Rust 1.89.0 (pinned `rust-toolchain.toml`), Solana CLI 2.2.12, Node 22, Yarn
+- **CI:** GitHub Actions (`.github/workflows/ci.yml`) — 3 parallel jobs
+
+## Common Commands
+
+```bash
+anchor build                      # Build program
+anchor test                       # Integration tests (local validator)
+cargo test --lib                  # Unit tests (30 tests, no validator)
+cargo fmt --all -- --check        # Format check
+cargo clippy --lib -- -D warnings # Lint (--lib only, NOT --all-targets)
+yarn lint                         # Prettier check
+```
+
+## Project Structure
+
+```
+programs/sol-auction/src/
+├── lib.rs                  # Program entrypoint, 11 instructions
+├── errors.rs               # 20 custom error variants
+├── helpers.rs              # Pure functions (fee calc, hash, Vickrey ranking, anti-snipe)
+├── state/{mod,auction,auction_house,bid}.rs
+└── instructions/{initialize_house,create_auction,place_bid,buy_now,
+                  submit_sealed_bid,reveal_bid,close_bidding,settle_auction,
+                  cancel_auction,claim_refund,forfeit_unrevealed}.rs
+tests/                       # 33 integration tests (6 suites)
+cli/                         # TypeScript CLI client
+scripts/devnet-demo.ts       # End-to-end devnet demo (all 3 types)
+```
+
+## Critical Notes
+
+### Clippy: Use `--lib` Only
+`cargo clippy --all-targets` fails because Anchor's `#[derive(Accounts)]` macro expands to code referencing `solana_program` which isn't resolvable outside the BPF target. Always use `cargo clippy --lib`.
+
+### Anchor Constraints
+- `init-if-needed` feature intentionally omitted — it enables account re-initialization attacks
+- All instructions use explicit status checks (no implicit state transitions)
+- PDA seeds deterministic: `[b"auction", seller.key(), &id.to_le_bytes()]`
+
+### Pure Helpers Pattern
+`helpers.rs` contains extracted pure functions with zero Anchor/runtime dependencies. All auction math lives here with comprehensive unit tests. When adding logic, prefer extracting pure functions into `helpers.rs` over embedding in instruction handlers.
+
+## Account Model
+
+- `AuctionHouse`: global config (fee rate, treasury)
+- `AuctionConfig`: per-auction state with `AuctionType` enum dispatch
+- `ItemVault`: SPL Token PDA holding the auctioned asset
+- `BidEscrow`: per-bidder PDA (one per bidder per auction, not a vector)
+
+## State Machine
+
+```
+Created → Active → {English: Settled, Dutch: Settled, Sealed: BiddingClosed → RevealPhase → Settled}
+Created → Cancelled (only if no bids)
+```
+
+Status transitions are one-way. No reversal from `Settled` or `Cancelled`.
+
+## Code Conventions
+
+- 4-space indent (Rust, `cargo fmt`); 2-space indent (TypeScript, Prettier)
+- All arithmetic uses checked operations; fee calculations use `u128` intermediate to prevent overflow
+- Custom errors specific and actionable (20 variants in `errors.rs`)
+- `#[allow(ambiguous_glob_reexports)]` in `instructions/mod.rs`
+
+## Devnet
+
+- Shared devnet wallet: `~/Documents/secret/solana-devnet.json`
+- Demo: `npx tsx scripts/devnet-demo.ts` (requires `ANCHOR_PROVIDER_URL` + `ANCHOR_WALLET`)
